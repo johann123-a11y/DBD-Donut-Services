@@ -1,6 +1,13 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
-const { getShop, saveShop, getCart, saveCart, getConfig } = require('../utils/db');
+const { getShop, getCart, saveCart, getConfig } = require('../utils/db');
 const { generateOrderId, buildShopEmbed, buildOrderEmbed } = require('../utils/orderUtils');
+
+function buildOrderButtons(userId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`close_order:${userId}`).setLabel('Close Order').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId(`clear_order:${userId}`).setLabel('Clear Order').setStyle(ButtonStyle.Secondary),
+  );
+}
 
 async function getOrCreateTicketChannel(interaction, cart, userId, categoryId) {
   if (cart.orderChannelId) {
@@ -18,14 +25,8 @@ async function getOrCreateTicketChannel(interaction, cart, userId, categoryId) {
     type: ChannelType.GuildText,
     parent: categoryId ?? null,
     permissionOverwrites: [
-      {
-        id: interaction.guild.roles.everyone,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
-      {
-        id: userId,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-      },
+      { id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
     ],
   });
 
@@ -57,7 +58,6 @@ async function handleModal(interaction) {
   }
 
   const existing = cart.items.find(e => e.shopItemId === itemId);
-
   if (existing) {
     existing.quantity += quantity;
   } else {
@@ -75,20 +75,18 @@ async function handleModal(interaction) {
     await shopMsg.edit({ embeds: [buildShopEmbed(item)], components: [row] });
   } catch { /* ignore */ }
 
-  // Ping content
-  const pingIds  = [userId, ...(config.pingUsers ?? []).filter(id => id !== userId)];
-  const pingText = pingIds.map(id => `<@${id}>`).join(' ');
+  const pingIds    = [userId, ...(config.pingUsers ?? []).filter(id => id !== userId)];
+  const pingText   = pingIds.map(id => `<@${id}>`).join(' ');
   const orderEmbed = buildOrderEmbed(cart);
+  const orderButtons = buildOrderButtons(userId);
 
-  // Get or create ticket channel
   const ticketChannel = await getOrCreateTicketChannel(interaction, cart, userId, config.ticketCategoryId);
   cart.orderChannelId = ticketChannel.id;
 
-  // Post or update order ticket in ticket channel
   if (cart.orderMessageId) {
     try {
       const orderMsg = await ticketChannel.messages.fetch(cart.orderMessageId);
-      await orderMsg.edit({ content: pingText, embeds: [orderEmbed] });
+      await orderMsg.edit({ embeds: [orderEmbed], components: [orderButtons] });
     } catch {
       cart.orderMessageId = null;
     }
@@ -96,7 +94,7 @@ async function handleModal(interaction) {
 
   if (!cart.orderMessageId) {
     await ticketChannel.send({ content: pingText });
-    const msg = await ticketChannel.send({ embeds: [orderEmbed] });
+    const msg = await ticketChannel.send({ embeds: [orderEmbed], components: [orderButtons] });
     cart.orderMessageId = msg.id;
     try { await msg.pin(); } catch { /* ignore */ }
   }
@@ -105,4 +103,4 @@ async function handleModal(interaction) {
   await interaction.editReply({ content: `✅ Added **${quantity}x ${item.title}** to your cart. Check ${ticketChannel}!` });
 }
 
-module.exports = { handleModal };
+module.exports = { handleModal, buildOrderButtons };
