@@ -100,6 +100,7 @@ async function handleModal(interaction) {
   if (!cart.orderMessageId) {
     const msg = await ticketChannel.send({ content: pingText, embeds: [orderEmbed] });
     cart.orderMessageId = msg.id;
+    try { await msg.pin(); } catch { /* ignore */ }
   }
 
   await saveCart(userId, cart);
