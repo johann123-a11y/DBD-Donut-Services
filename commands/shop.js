@@ -50,14 +50,12 @@ module.exports = {
       );
 
       const msg = await interaction.editReply({ embeds: [embed], components: [row] });
-
       await saveShop(itemId, { title, price, stock, imageUrl, createdBy: interaction.user.id, messageId: msg.id, channelId: interaction.channelId });
     }
 
     if (sub === 'delete') {
       const itemId = interaction.options.getString('item_id');
       const item   = await getShop(itemId);
-
       if (!item) return interaction.reply({ content: '❌ Item not found.', ephemeral: true });
 
       try {
