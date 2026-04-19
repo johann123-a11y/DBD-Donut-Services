@@ -2,10 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFla
 const { getShop, saveShop, getCart, saveCart, getConfig } = require('../utils/db');
 const { generateOrderId, buildShopEmbed, buildOrderEmbed } = require('../utils/orderUtils');
 
-const TICKET_CATEGORY_ID = process.env.TICKET_CATEGORY_ID;
-
-async function getOrCreateTicketChannel(interaction, cart, userId) {
-  // If ticket channel already exists, return it
+async function getOrCreateTicketChannel(interaction, cart, userId, categoryId) {
   if (cart.orderChannelId) {
     try {
       const ch = await interaction.client.channels.fetch(cart.orderChannelId);
@@ -19,7 +16,7 @@ async function getOrCreateTicketChannel(interaction, cart, userId) {
   const channel = await interaction.guild.channels.create({
     name: `order-${username}`,
     type: ChannelType.GuildText,
-    parent: TICKET_CATEGORY_ID,
+    parent: categoryId ?? null,
     permissionOverwrites: [
       {
         id: interaction.guild.roles.everyone,
@@ -84,7 +81,7 @@ async function handleModal(interaction) {
   const orderEmbed = buildOrderEmbed(cart);
 
   // Get or create ticket channel
-  const ticketChannel = await getOrCreateTicketChannel(interaction, cart, userId);
+  const ticketChannel = await getOrCreateTicketChannel(interaction, cart, userId, config.ticketCategoryId);
   cart.orderChannelId = ticketChannel.id;
 
   // Post or update order ticket in ticket channel
