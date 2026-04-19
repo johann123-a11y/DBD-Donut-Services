@@ -1,0 +1,14 @@
+{
+  "name": "donut-services",
+  "version": "1.0.0",
+  "description": "Donut Services Discord Shop Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.5"
+  }
+}
