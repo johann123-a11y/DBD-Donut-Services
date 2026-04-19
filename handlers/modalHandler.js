@@ -1,6 +1,39 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { getShop, saveShop, getCart, saveCart, getConfig } = require('../utils/db');
 const { generateOrderId, buildShopEmbed, buildOrderEmbed } = require('../utils/orderUtils');
+
+const TICKET_CATEGORY_ID = process.env.TICKET_CATEGORY_ID;
+
+async function getOrCreateTicketChannel(interaction, cart, userId) {
+  // If ticket channel already exists, return it
+  if (cart.orderChannelId) {
+    try {
+      const ch = await interaction.client.channels.fetch(cart.orderChannelId);
+      if (ch) return ch;
+    } catch { /* channel deleted, create new one */ }
+  }
+
+  const member   = await interaction.guild.members.fetch(userId);
+  const username = member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+  const channel = await interaction.guild.channels.create({
+    name: `order-${username}`,
+    type: ChannelType.GuildText,
+    parent: TICKET_CATEGORY_ID,
+    permissionOverwrites: [
+      {
+        id: interaction.guild.roles.everyone,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+      {
+        id: userId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      },
+    ],
+  });
+
+  return channel;
+}
 
 async function handleModal(interaction) {
   if (!interaction.customId.startsWith('add_to_cart_modal:')) return;
@@ -59,11 +92,14 @@ async function handleModal(interaction) {
   const pingText = pingIds.map(id => `<@${id}>`).join(' ');
   const orderEmbed = buildOrderEmbed(cart);
 
-  // Post or update order ticket
-  if (cart.orderMessageId && cart.orderChannelId) {
+  // Get or create ticket channel
+  const ticketChannel = await getOrCreateTicketChannel(interaction, cart, userId);
+  cart.orderChannelId = ticketChannel.id;
+
+  // Post or update order ticket in ticket channel
+  if (cart.orderMessageId) {
     try {
-      const orderCh  = await interaction.client.channels.fetch(cart.orderChannelId);
-      const orderMsg = await orderCh.messages.fetch(cart.orderMessageId);
+      const orderMsg = await ticketChannel.messages.fetch(cart.orderMessageId);
       await orderMsg.edit({ content: pingText, embeds: [orderEmbed] });
     } catch {
       cart.orderMessageId = null;
@@ -71,14 +107,12 @@ async function handleModal(interaction) {
   }
 
   if (!cart.orderMessageId) {
-    const ch  = await interaction.client.channels.fetch(interaction.channelId);
-    const msg = await ch.send({ content: pingText, embeds: [orderEmbed] });
+    const msg = await ticketChannel.send({ content: pingText, embeds: [orderEmbed] });
     cart.orderMessageId = msg.id;
-    cart.orderChannelId = interaction.channelId;
   }
 
   await saveCart(userId, cart);
-  await interaction.editReply({ content: `✅ Added **${quantity}x ${item.title}** to your cart.` });
+  await interaction.editReply({ content: `✅ Added **${quantity}x ${item.title}** to your cart. Check ${ticketChannel}!` });
 }
 
 module.exports = { handleModal };
