@@ -51,9 +51,6 @@ async function handleModal(interaction) {
   const config = await getConfig();
 
   if (!item) return interaction.editReply({ content: '❌ Item no longer exists.' });
-  if (item.stock < quantity) {
-    return interaction.editReply({ content: `❌ Only **${item.stock}** left in stock.` });
-  }
 
   const userId = interaction.user.id;
   let cart = await getCart(userId);
@@ -65,16 +62,10 @@ async function handleModal(interaction) {
   const existing = cart.items.find(e => e.shopItemId === itemId);
 
   if (existing) {
-    if (item.stock < existing.quantity + quantity) {
-      return interaction.editReply({ content: `❌ Not enough stock. Only **${item.stock - existing.quantity}** more available.` });
-    }
     existing.quantity += quantity;
   } else {
     cart.items.push({ shopItemId: itemId, title: item.title, price: item.price, quantity });
   }
-
-  item.stock -= quantity;
-  await saveShop(itemId, item);
 
   // Update shop embed
   try {

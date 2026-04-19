@@ -25,8 +25,7 @@ function buildShopEmbed(item) {
     .setColor(0x2b2d31)
     .setTitle(item.title)
     .addFields(
-      { name: 'Price', value: `€${item.price.toFixed(2)}` },
-      { name: '\u200b', value: `${item.stock} available` }
+      { name: 'Price', value: `€${item.price.toFixed(2)}` }
     );
 
   if (item.imageUrl) embed.setImage(item.imageUrl);

@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { getShop, saveShop, getCart, saveCart } = require('../utils/db');
+const { getShop, getCart, saveCart } = require('../utils/db');
 const { buildShopEmbed, buildOrderEmbed } = require('../utils/orderUtils');
 
 async function handleButton(interaction) {
@@ -35,11 +35,7 @@ async function handleButton(interaction) {
     const existing = cart.items.find(e => e.shopItemId === itemId);
     if (!existing) return interaction.reply({ content: '❌ Item not in your cart.', ephemeral: true });
 
-    // Restore stock
-    item.stock += existing.quantity;
-    cart.items  = cart.items.filter(e => e.shopItemId !== itemId);
-
-    await saveShop(itemId, item);
+    cart.items = cart.items.filter(e => e.shopItemId !== itemId);
     await saveCart(interaction.user.id, cart);
 
     // Update shop embed

@@ -18,7 +18,6 @@ module.exports = {
         .setDescription('Create a new shop item')
         .addStringOption(o => o.setName('title').setDescription('Item name').setRequired(true))
         .addNumberOption(o => o.setName('price').setDescription('Price in €').setRequired(true))
-        .addIntegerOption(o => o.setName('stock').setDescription('Available quantity').setRequired(true))
         .addAttachmentOption(o => o.setName('image').setDescription('Item image').setRequired(false))
         .addStringOption(o => o.setName('image_url').setDescription('Or paste an image URL').setRequired(false))
     )
@@ -34,14 +33,13 @@ module.exports = {
     if (sub === 'create') {
       const title    = interaction.options.getString('title');
       const price    = interaction.options.getNumber('price');
-      const stock    = interaction.options.getInteger('stock');
       const attach   = interaction.options.getAttachment('image');
       const imageUrl = attach?.url ?? interaction.options.getString('image_url') ?? null;
 
       await interaction.deferReply();
 
       const itemId = generateItemId();
-      const item   = { id: itemId, title, price, stock, imageUrl, createdBy: interaction.user.id };
+      const item   = { id: itemId, title, price, imageUrl, createdBy: interaction.user.id };
       const embed  = buildShopEmbed(item);
 
       const row = new ActionRowBuilder().addComponents(
@@ -50,7 +48,7 @@ module.exports = {
       );
 
       const msg = await interaction.editReply({ embeds: [embed], components: [row] });
-      await saveShop(itemId, { title, price, stock, imageUrl, createdBy: interaction.user.id, messageId: msg.id, channelId: interaction.channelId });
+      await saveShop(itemId, { title, price, imageUrl, createdBy: interaction.user.id, messageId: msg.id, channelId: interaction.channelId });
     }
 
     if (sub === 'delete') {
