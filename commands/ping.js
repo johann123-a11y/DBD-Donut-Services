@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { readJSON, writeJSON } = require('../utils/storage');
+const { getConfig, saveConfig } = require('../utils/db');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,21 +17,18 @@ module.exports = {
         .addUserOption(o => o.setName('user').setDescription('User to remove').setRequired(true))
     )
     .addSubcommand(sub =>
-      sub.setName('list')
-        .setDescription('Show current ping list')
+      sub.setName('list').setDescription('Show current ping list')
     ),
 
   async execute(interaction) {
     const sub    = interaction.options.getSubcommand();
-    const config = readJSON('config.json');
-    if (!config.pingUsers) config.pingUsers = [];
+    const config = await getConfig();
 
     if (sub === 'list') {
-      if (config.pingUsers.length === 0) {
+      if (!config.pingUsers.length) {
         return interaction.reply({ content: 'No extra ping users configured. Only the buyer is pinged.', ephemeral: true });
       }
-      const mentions = config.pingUsers.map(id => `<@${id}>`).join(', ');
-      return interaction.reply({ content: `📣 Ping list: ${mentions}`, ephemeral: true });
+      return interaction.reply({ content: `📣 Ping list: ${config.pingUsers.map(id => `<@${id}>`).join(', ')}`, ephemeral: true });
     }
 
     const target = interaction.options.getUser('user');
@@ -41,13 +38,12 @@ module.exports = {
         return interaction.reply({ content: `${target} is already on the ping list.`, ephemeral: true });
       }
       config.pingUsers.push(target.id);
-      writeJSON('config.json', config);
+      await saveConfig({ pingUsers: config.pingUsers });
       return interaction.reply({ content: `✅ ${target} added to the ping list.`, ephemeral: true });
     }
 
     if (sub === 'remove') {
-      config.pingUsers = config.pingUsers.filter(id => id !== target.id);
-      writeJSON('config.json', config);
+      await saveConfig({ pingUsers: config.pingUsers.filter(id => id !== target.id) });
       return interaction.reply({ content: `✅ ${target} removed from the ping list.`, ephemeral: true });
     }
   },

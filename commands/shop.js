@@ -5,7 +5,7 @@ const {
   ButtonStyle,
   PermissionFlagsBits,
 } = require('discord.js');
-const { readJSON, writeJSON } = require('../utils/storage');
+const { getShop, saveShop, deleteShop } = require('../utils/db');
 const { generateItemId, buildShopEmbed } = require('../utils/orderUtils');
 
 module.exports = {
@@ -32,54 +32,41 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'create') {
-      const title     = interaction.options.getString('title');
-      const price     = interaction.options.getNumber('price');
-      const stock     = interaction.options.getInteger('stock');
-      const attach    = interaction.options.getAttachment('image');
-      const imageUrl  = attach?.url ?? interaction.options.getString('image_url') ?? null;
+      const title    = interaction.options.getString('title');
+      const price    = interaction.options.getNumber('price');
+      const stock    = interaction.options.getInteger('stock');
+      const attach   = interaction.options.getAttachment('image');
+      const imageUrl = attach?.url ?? interaction.options.getString('image_url') ?? null;
 
       await interaction.deferReply();
 
       const itemId = generateItemId();
-      const shops  = readJSON('shops.json');
-
-      const item = { id: itemId, title, price, stock, imageUrl, createdBy: interaction.user.id };
-      const embed = buildShopEmbed(item);
+      const item   = { id: itemId, title, price, stock, imageUrl, createdBy: interaction.user.id };
+      const embed  = buildShopEmbed(item);
 
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`add_to_cart:${itemId}`)
-          .setLabel('Add to Cart')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`remove_from_cart:${itemId}`)
-          .setLabel('Remove from Cart')
-          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`add_to_cart:${itemId}`).setLabel('Add to Cart').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`remove_from_cart:${itemId}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
       );
 
       const msg = await interaction.editReply({ embeds: [embed], components: [row] });
 
-      shops[itemId] = { ...item, messageId: msg.id, channelId: interaction.channelId };
-      writeJSON('shops.json', shops);
+      await saveShop(itemId, { title, price, stock, imageUrl, createdBy: interaction.user.id, messageId: msg.id, channelId: interaction.channelId });
     }
 
     if (sub === 'delete') {
       const itemId = interaction.options.getString('item_id');
-      const shops  = readJSON('shops.json');
+      const item   = await getShop(itemId);
 
-      if (!shops[itemId]) {
-        return interaction.reply({ content: '❌ Item not found.', ephemeral: true });
-      }
+      if (!item) return interaction.reply({ content: '❌ Item not found.', ephemeral: true });
 
-      // Try to delete the shop message
       try {
-        const ch  = await interaction.client.channels.fetch(shops[itemId].channelId);
-        const msg = await ch.messages.fetch(shops[itemId].messageId);
+        const ch  = await interaction.client.channels.fetch(item.channelId);
+        const msg = await ch.messages.fetch(item.messageId);
         await msg.delete();
-      } catch { /* message already gone */ }
+      } catch { /* already deleted */ }
 
-      delete shops[itemId];
-      writeJSON('shops.json', shops);
+      await deleteShop(itemId);
       await interaction.reply({ content: `✅ Item \`${itemId}\` deleted.`, ephemeral: true });
     }
   },

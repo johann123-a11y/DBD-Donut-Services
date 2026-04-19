@@ -2,11 +2,11 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const fs   = require('fs');
 const path = require('path');
+const { connectDB } = require('./utils/db');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.commands = new Collection();
 
-// Load commands
 const commandsPath = path.join(__dirname, 'commands');
 for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) {
   const cmd = require(path.join(commandsPath, file));
@@ -40,4 +40,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+(async () => {
+  await connectDB();
+  await client.login(process.env.DISCORD_TOKEN);
+})();

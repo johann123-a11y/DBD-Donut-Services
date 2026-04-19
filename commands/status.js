@@ -1,8 +1,5 @@
-const {
-  SlashCommandBuilder,
-  PermissionFlagsBits,
-} = require('discord.js');
-const { readJSON, writeJSON } = require('../utils/storage');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { getCart, saveCart } = require('../utils/db');
 const { buildOrderEmbed, STATUS_OPTIONS } = require('../utils/orderUtils');
 
 const statusChoices = Object.entries(STATUS_OPTIONS).map(([value, name]) => ({ name, value }));
@@ -10,30 +7,25 @@ const statusChoices = Object.entries(STATUS_OPTIONS).map(([value, name]) => ({ n
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('status')
-    .setDescription('Update the status of a user\'s order')
+    .setDescription("Update the status of a user's order")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .addUserOption(o => o.setName('user').setDescription('The buyer').setRequired(true))
     .addStringOption(o =>
-      o.setName('status')
-        .setDescription('New status')
-        .setRequired(true)
-        .addChoices(...statusChoices)
+      o.setName('status').setDescription('New status').setRequired(true).addChoices(...statusChoices)
     ),
 
   async execute(interaction) {
     const target    = interaction.options.getUser('user');
     const newStatus = interaction.options.getString('status');
-    const carts     = readJSON('carts.json');
-    const cart      = carts[target.id];
+    const cart      = await getCart(target.id);
 
     if (!cart || cart.items.length === 0) {
       return interaction.reply({ content: `❌ No active order found for ${target}.`, ephemeral: true });
     }
 
     cart.status = newStatus;
-    writeJSON('carts.json', carts);
+    await saveCart(target.id, cart);
 
-    // Update the order ticket message
     try {
       const ch  = await interaction.client.channels.fetch(cart.orderChannelId);
       const msg = await ch.messages.fetch(cart.orderMessageId);

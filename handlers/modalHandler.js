@@ -1,13 +1,12 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { readJSON, writeJSON } = require('../utils/storage');
+const { getShop, saveShop, getCart, saveCart, getConfig } = require('../utils/db');
 const { generateOrderId, buildShopEmbed, buildOrderEmbed } = require('../utils/orderUtils');
 
 async function handleModal(interaction) {
   if (!interaction.customId.startsWith('add_to_cart_modal:')) return;
 
   const itemId   = interaction.customId.split(':')[1];
-  const quantStr = interaction.fields.getTextInputValue('quantity');
-  const quantity = parseInt(quantStr, 10);
+  const quantity = parseInt(interaction.fields.getTextInputValue('quantity'), 10);
 
   if (isNaN(quantity) || quantity < 1) {
     return interaction.reply({ content: '❌ Please enter a valid quantity (minimum 1).', ephemeral: true });
@@ -15,29 +14,21 @@ async function handleModal(interaction) {
 
   await interaction.deferReply({ ephemeral: true });
 
-  const shops  = readJSON('shops.json');
-  const carts  = readJSON('carts.json');
-  const config = readJSON('config.json');
-  const item   = shops[itemId];
+  const item   = await getShop(itemId);
+  const config = await getConfig();
 
   if (!item) return interaction.editReply({ content: '❌ Item no longer exists.' });
   if (item.stock < quantity) {
     return interaction.editReply({ content: `❌ Only **${item.stock}** left in stock.` });
   }
 
-  // Build or update user cart
   const userId = interaction.user.id;
-  if (!carts[userId]) {
-    carts[userId] = {
-      orderId:        generateOrderId(),
-      items:          [],
-      orderMessageId: null,
-      orderChannelId: null,
-      status:         'waiting',
-    };
+  let cart = await getCart(userId);
+
+  if (!cart) {
+    cart = { _id: userId, orderId: generateOrderId(), items: [], orderMessageId: null, orderChannelId: null, status: 'waiting' };
   }
 
-  const cart     = carts[userId];
   const existing = cart.items.find(e => e.shopItemId === itemId);
 
   if (existing) {
@@ -46,19 +37,13 @@ async function handleModal(interaction) {
     }
     existing.quantity += quantity;
   } else {
-    cart.items.push({
-      shopItemId: itemId,
-      title:      item.title,
-      price:      item.price,
-      quantity,
-    });
+    cart.items.push({ shopItemId: itemId, title: item.title, price: item.price, quantity });
   }
 
-  // Reduce stock
   item.stock -= quantity;
-  writeJSON('shops.json', shops);
+  await saveShop(itemId, item);
 
-  // Update shop embed to reflect new stock
+  // Update shop embed
   try {
     const shopCh  = await interaction.client.channels.fetch(item.channelId);
     const shopMsg = await shopCh.messages.fetch(item.messageId);
@@ -69,20 +54,18 @@ async function handleModal(interaction) {
     await shopMsg.edit({ embeds: [buildShopEmbed(item)], components: [row] });
   } catch { /* ignore */ }
 
-  // Build ping content: buyer + extra pings
+  // Ping content
   const pingIds  = [userId, ...(config.pingUsers ?? []).filter(id => id !== userId)];
   const pingText = pingIds.map(id => `<@${id}>`).join(' ');
-
   const orderEmbed = buildOrderEmbed(cart);
 
-  // Post or update the order ticket
+  // Post or update order ticket
   if (cart.orderMessageId && cart.orderChannelId) {
     try {
       const orderCh  = await interaction.client.channels.fetch(cart.orderChannelId);
       const orderMsg = await orderCh.messages.fetch(cart.orderMessageId);
       await orderMsg.edit({ content: pingText, embeds: [orderEmbed] });
     } catch {
-      // Message gone — create a new one
       cart.orderMessageId = null;
     }
   }
@@ -94,8 +77,7 @@ async function handleModal(interaction) {
     cart.orderChannelId = interaction.channelId;
   }
 
-  writeJSON('carts.json', carts);
-
+  await saveCart(userId, cart);
   await interaction.editReply({ content: `✅ Added **${quantity}x ${item.title}** to your cart.` });
 }
 

@@ -1,14 +1,13 @@
-const {
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ActionRowBuilder,
-} = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { getShop, saveShop, getCart, saveCart } = require('../utils/db');
+const { buildShopEmbed, buildOrderEmbed } = require('../utils/orderUtils');
 
 async function handleButton(interaction) {
   const [action, itemId] = interaction.customId.split(':');
 
   if (action === 'add_to_cart') {
+    const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+
     const modal = new ModalBuilder()
       .setCustomId(`add_to_cart_modal:${itemId}`)
       .setTitle('Add to Cart');
@@ -27,17 +26,10 @@ async function handleButton(interaction) {
   }
 
   if (action === 'remove_from_cart') {
-    const { readJSON, writeJSON } = require('../utils/storage');
-    const { buildShopEmbed, buildOrderEmbed } = require('../utils/orderUtils');
-    const { ActionRowBuilder: ARB, ButtonBuilder, ButtonStyle } = require('discord.js');
-
-    const shops = readJSON('shops.json');
-    const carts = readJSON('carts.json');
-    const item  = shops[itemId];
-
+    const item = await getShop(itemId);
     if (!item) return interaction.reply({ content: '❌ Item not found.', ephemeral: true });
 
-    const cart = carts[interaction.user.id];
+    const cart = await getCart(interaction.user.id);
     if (!cart) return interaction.reply({ content: '❌ You have no active cart.', ephemeral: true });
 
     const existing = cart.items.find(e => e.shopItemId === itemId);
@@ -45,16 +37,16 @@ async function handleButton(interaction) {
 
     // Restore stock
     item.stock += existing.quantity;
-    cart.items = cart.items.filter(e => e.shopItemId !== itemId);
+    cart.items  = cart.items.filter(e => e.shopItemId !== itemId);
 
-    writeJSON('shops.json', shops);
-    writeJSON('carts.json', carts);
+    await saveShop(itemId, item);
+    await saveCart(interaction.user.id, cart);
 
     // Update shop embed
     try {
       const shopCh  = await interaction.client.channels.fetch(item.channelId);
       const shopMsg = await shopCh.messages.fetch(item.messageId);
-      const row = new ARB().addComponents(
+      const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`add_to_cart:${itemId}`).setLabel('Add to Cart').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`remove_from_cart:${itemId}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
       );
