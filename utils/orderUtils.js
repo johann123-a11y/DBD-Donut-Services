@@ -25,7 +25,7 @@ function buildShopEmbed(item) {
     .setColor(0x2b2d31)
     .setTitle(item.title)
     .addFields(
-      { name: 'Price', value: `€${item.price.toFixed(2)}` }
+      { name: 'Price', value: `${item.price}m` }
     );
 
   if (item.imageUrl) embed.setImage(item.imageUrl);
@@ -39,7 +39,7 @@ function buildOrderEmbed(cart) {
 
   for (const entry of cart.items) {
     const lineTotal = entry.price * entry.quantity;
-    description += `**${entry.title}**\n${entry.quantity} pcs — €${lineTotal.toFixed(2)}\n\n`;
+    description += `**${entry.title}**\n${entry.quantity} pcs — ${lineTotal}m\n\n`;
     totalKits += entry.quantity;
     itemsTotal += lineTotal;
   }
@@ -50,14 +50,14 @@ function buildOrderEmbed(cart) {
     .setDescription(description.trim() || '*No items in cart*')
     .addFields(
       { name: 'Total Kits',   value: `${totalKits}`,                  inline: true },
-      { name: 'Items Total',  value: `€${itemsTotal.toFixed(2)}`,     inline: true },
-      { name: 'Final Total',  value: `€${itemsTotal.toFixed(2)}`,     inline: true },
+      { name: 'Items Total',  value: `${itemsTotal}m`,     inline: true },
+      { name: 'Final Total',  value: `${itemsTotal}m`,     inline: true },
     );
 
   if (itemsTotal < MIN_ORDER_AMOUNT && cart.items.length > 0) {
     embed.addFields({
       name: '⚠️ Minimum Order',
-      value: `Minimum order amount is **€${MIN_ORDER_AMOUNT.toFixed(2)}**.\nAdd more items to proceed with checkout.`,
+      value: `Minimum order amount is **${MIN_ORDER_AMOUNT}m**.\nAdd more items to proceed with checkout.`,
     });
   }
 

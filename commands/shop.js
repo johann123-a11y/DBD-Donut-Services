@@ -17,7 +17,7 @@ module.exports = {
       sub.setName('create')
         .setDescription('Create a new shop item')
         .addStringOption(o => o.setName('title').setDescription('Item name').setRequired(true))
-        .addNumberOption(o => o.setName('price').setDescription('Price in €').setRequired(true))
+        .addNumberOption(o => o.setName('price').setDescription('Price in m').setRequired(true))
         .addAttachmentOption(o => o.setName('image').setDescription('Item image').setRequired(false))
         .addStringOption(o => o.setName('image_url').setDescription('Or paste an image URL').setRequired(false))
     )
