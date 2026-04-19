@@ -8,7 +8,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('status')
     .setDescription("Update the status of a user's order")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addUserOption(o => o.setName('user').setDescription('The buyer').setRequired(true))
     .addStringOption(o =>
       o.setName('status').setDescription('New status').setRequired(true).addChoices(...statusChoices)
