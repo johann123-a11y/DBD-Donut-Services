@@ -29,16 +29,18 @@ async function handleButton(interaction) {
     cart.items = cart.items.filter(e => e.shopItemId !== targetId);
     await saveCart(interaction.user.id, cart);
 
-    // Update shop embed
-    try {
-      const shopCh  = await interaction.client.channels.fetch(item.channelId);
-      const shopMsg = await shopCh.messages.fetch(item.messageId);
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`add_to_cart:${targetId}`).setLabel('Add to Cart').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`remove_from_cart:${targetId}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
-      );
-      await shopMsg.edit({ embeds: [buildShopEmbed(item)], components: [row] });
-    } catch { /* ignore */ }
+    // Update all shop embeds across all channels
+    for (const { messageId, channelId } of (item.messages ?? [])) {
+      try {
+        const shopCh  = await interaction.client.channels.fetch(channelId);
+        const shopMsg = await shopCh.messages.fetch(messageId);
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`add_to_cart:${targetId}`).setLabel('Add to Cart').setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId(`remove_from_cart:${targetId}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
+        );
+        await shopMsg.edit({ embeds: [buildShopEmbed(item)], components: [row] });
+      } catch { /* ignore */ }
+    }
 
     // Update order ticket
     if (cart.orderMessageId && cart.orderChannelId) {

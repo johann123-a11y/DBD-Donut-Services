@@ -68,16 +68,7 @@ async function handleModal(interaction) {
     cart.items.push({ shopItemId: itemId, title: item.title, price: item.price, quantity });
   }
 
-  // Update shop embed
-  try {
-    const shopCh  = await interaction.client.channels.fetch(item.channelId);
-    const shopMsg = await shopCh.messages.fetch(item.messageId);
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`add_to_cart:${itemId}`).setLabel('Add to Cart').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(`remove_from_cart:${itemId}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
-    );
-    await shopMsg.edit({ embeds: [buildShopEmbed(item)], components: [row] });
-  } catch { /* shop message may have been deleted */ }
+  // Update all shop embeds across all channels (no-op since we removed stock)
 
   const pingIds    = [userId, ...(config.pingUsers ?? []).filter(id => id !== userId)];
   const rolePings  = (config.pingRoles ?? []).map(id => `<@&${id}>`);

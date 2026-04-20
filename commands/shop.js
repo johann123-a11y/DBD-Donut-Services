@@ -5,7 +5,7 @@ const {
   ButtonStyle,
   PermissionFlagsBits,
 } = require('discord.js');
-const { getShop, saveShop, deleteShop, findShopByName, getAllShops } = require('../utils/db');
+const { saveShop, addShopMessage, deleteShop, findShopByName, getAllShops } = require('../utils/db');
 const { generateItemId, buildShopEmbed } = require('../utils/orderUtils');
 
 async function spawnShopItem(channel, item) {
@@ -16,14 +16,7 @@ async function spawnShopItem(channel, item) {
     new ButtonBuilder().setCustomId(`remove_from_cart:${itemId}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
   );
   const msg = await channel.send({ embeds: [embed], components: [row] });
-  await saveShop(itemId, {
-    title:     item.title,
-    price:     item.price,
-    imageUrl:  item.imageUrl,
-    createdBy: item.createdBy,
-    messageId: msg.id,
-    channelId: channel.id,
-  });
+  await addShopMessage(itemId, msg.id, channel.id);
   return msg;
 }
 
@@ -42,11 +35,11 @@ module.exports = {
     )
     .addSubcommand(sub =>
       sub.setName('spawn')
-        .setDescription('Post all shop items in this channel (reposts deleted ones)')
+        .setDescription('Post all shop items in this channel')
     )
     .addSubcommand(sub =>
       sub.setName('delete')
-        .setDescription('Delete a shop item by name')
+        .setDescription('Delete a shop item by name (removes all posted messages)')
         .addStringOption(o => o.setName('name').setDescription('Item name').setRequired(true))
     ),
 
@@ -60,7 +53,7 @@ module.exports = {
       const imageUrl = attach?.url ?? interaction.options.getString('image_url') ?? null;
 
       const itemId = generateItemId();
-      await saveShop(itemId, { title, price, imageUrl, createdBy: interaction.user.id, messageId: null, channelId: null });
+      await saveShop(itemId, { title, price, imageUrl, createdBy: interaction.user.id, messages: [] });
 
       await interaction.reply({
         content: `✅ **${title}** saved to the shop. Use \`/shop spawn\` to post all items.`,
@@ -78,8 +71,7 @@ module.exports = {
         }
 
         const channel = interaction.channel ?? await interaction.client.channels.fetch(interaction.channelId);
-        let posted  = 0;
-        let skipped = 0;
+        let posted = 0;
 
         for (const item of items) {
           try {
@@ -90,9 +82,7 @@ module.exports = {
           }
         }
 
-        await interaction.editReply({
-          content: `✅ Spawn complete — **${posted}** items posted.`,
-        });
+        await interaction.editReply({ content: `✅ Spawn complete — **${posted}** items posted.` });
       } catch (err) {
         console.error('Spawn error:', err);
         await interaction.editReply({ content: `❌ Spawn failed: ${err.message}` });
@@ -104,17 +94,22 @@ module.exports = {
       const item = await findShopByName(name);
       if (!item) return interaction.reply({ content: `❌ No item found with name **${name}**.`, ephemeral: true });
 
-      // Delete the Discord message if it exists
-      if (item.messageId && item.channelId) {
+      // Delete ALL posted messages across all channels
+      let deleted = 0;
+      for (const { messageId, channelId } of (item.messages ?? [])) {
         try {
-          const ch  = await interaction.client.channels.fetch(item.channelId);
-          const msg = await ch.messages.fetch(item.messageId);
+          const ch  = await interaction.client.channels.fetch(channelId);
+          const msg = await ch.messages.fetch(messageId);
           await msg.delete();
-        } catch { /* message already deleted */ }
+          deleted++;
+        } catch { /* already deleted */ }
       }
 
       await deleteShop(item._id);
-      await interaction.reply({ content: `✅ **${item.title}** has been permanently deleted.`, ephemeral: true });
+      await interaction.reply({
+        content: `✅ **${item.title}** permanently deleted (${deleted} message(s) removed). Cart entries are kept.`,
+        ephemeral: true,
+      });
     }
   },
 };
