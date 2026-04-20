@@ -25,7 +25,7 @@ function buildShopEmbed(item) {
     .setColor(0x2b2d31)
     .setTitle(item.title || 'Untitled')
     .addFields(
-      { name: 'Price', value: item.price || 'N/A' }
+      { name: 'Price', value: String(item.price ?? 'N/A') }
     );
 
   if (item.imageUrl) {
@@ -39,7 +39,7 @@ function buildOrderEmbed(cart) {
   let totalKits = 0;
 
   for (const entry of cart.items) {
-    description += `**${entry.title}**\n${entry.quantity} pcs — ${entry.price}\n\n`;
+    description += `**${entry.title}**\n${entry.quantity} pcs — ${String(entry.price ?? 'N/A')}\n\n`;
     totalKits += entry.quantity;
   }
 
