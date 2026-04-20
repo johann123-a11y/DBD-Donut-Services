@@ -14,7 +14,7 @@ async function connectDB() {
 const shopSchema = new mongoose.Schema({
   _id:       String,
   title:     String,
-  price:     Number,
+  price:     String,
   stock:     Number,
   imageUrl:  String,
   createdBy: String,
@@ -25,7 +25,7 @@ const shopSchema = new mongoose.Schema({
 const cartItemSchema = new mongoose.Schema({
   shopItemId: String,
   title:      String,
-  price:      Number,
+  price:      String,
   quantity:   Number,
 }, { _id: false });
 
