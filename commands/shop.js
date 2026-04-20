@@ -71,36 +71,45 @@ module.exports = {
     if (sub === 'spawn') {
       await interaction.deferReply({ ephemeral: true });
 
-      const items = await getAllShops();
-      if (!items.length) {
-        return interaction.editReply({ content: '❌ No items in the shop yet. Use `/shop create` first.' });
-      }
-
-      let posted = 0;
-      let skipped = 0;
-
-      for (const item of items) {
-        // Check if the message still exists
-        let messageExists = false;
-        if (item.messageId && item.channelId) {
-          try {
-            const ch  = await interaction.client.channels.fetch(item.channelId);
-            await ch.messages.fetch(item.messageId);
-            messageExists = true;
-          } catch { /* message was deleted */ }
+      try {
+        const items = await getAllShops();
+        if (!items.length) {
+          return interaction.editReply({ content: '❌ No items in the shop yet. Use `/shop create` first.' });
         }
 
-        if (!messageExists) {
-          await spawnShopItem(interaction.channel, item);
-          posted++;
-        } else {
-          skipped++;
-        }
-      }
+        const channel = interaction.channel ?? await interaction.client.channels.fetch(interaction.channelId);
+        let posted  = 0;
+        let skipped = 0;
 
-      await interaction.editReply({
-        content: `✅ Spawn complete — **${posted}** posted, **${skipped}** already active.`,
-      });
+        for (const item of items) {
+          let messageExists = false;
+          if (item.messageId && item.channelId) {
+            try {
+              const ch = await interaction.client.channels.fetch(item.channelId);
+              await ch.messages.fetch(item.messageId);
+              messageExists = true;
+            } catch { /* message was deleted, will repost */ }
+          }
+
+          if (!messageExists) {
+            try {
+              await spawnShopItem(channel, item);
+              posted++;
+            } catch (err) {
+              console.error(`Failed to spawn item ${item._id}:`, err);
+            }
+          } else {
+            skipped++;
+          }
+        }
+
+        await interaction.editReply({
+          content: `✅ Spawn complete — **${posted}** posted, **${skipped}** already active.`,
+        });
+      } catch (err) {
+        console.error('Spawn error:', err);
+        await interaction.editReply({ content: `❌ Spawn failed: ${err.message}` });
+      }
     }
 
     if (sub === 'delete') {
