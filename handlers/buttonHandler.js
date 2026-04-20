@@ -61,7 +61,13 @@ async function handleButton(interaction) {
     setTimeout(async () => {
       try { await interaction.channel.delete(); } catch { /* ignore */ }
     }, 3000);
-    if (cart) { cart.orderChannelId = null; cart.orderMessageId = null; await saveCart(targetId, cart); }
+    if (cart) {
+      cart.orderChannelId = null;
+      cart.orderMessageId = null;
+      cart.items = [];
+      cart.status = 'waiting';
+      await saveCart(targetId, cart);
+    }
   }
 
   if (action === 'clear_order') {
