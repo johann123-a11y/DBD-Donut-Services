@@ -26,7 +26,7 @@ module.exports = {
     )
     .addSubcommand(sub =>
       sub.setName('reset')
-        .setDescription('Reset ticket channel link (so next order creates a new one in the correct category)')
+        .setDescription('Reset ticket channel link so a new one is created on next order')
         .addUserOption(o => o.setName('user').setDescription('User to reset').setRequired(true))
     ),
 
@@ -34,6 +34,14 @@ module.exports = {
     const sub    = interaction.options.getSubcommand();
     const target = interaction.options.getUser('user');
     const cart   = await getCart(target.id);
+
+    if (sub === 'reset') {
+      if (!cart) return interaction.reply({ content: `❌ No cart found for ${target}.`, ephemeral: true });
+      cart.orderChannelId = null;
+      cart.orderMessageId = null;
+      await saveCart(target.id, cart);
+      return interaction.reply({ content: `✅ Ticket link for ${target} reset. A new ticket will be created in the correct category on their next order.`, ephemeral: true });
+    }
 
     if (!cart?.orderChannelId) {
       return interaction.reply({ content: `❌ No active ticket found for ${target}.`, ephemeral: true });
@@ -43,7 +51,7 @@ module.exports = {
     try {
       ch = await interaction.client.channels.fetch(cart.orderChannelId);
     } catch {
-      return interaction.reply({ content: '❌ Ticket channel not found.', ephemeral: true });
+      return interaction.reply({ content: '❌ Ticket channel not found. Use `/cart reset` to clear the link.', ephemeral: true });
     }
 
     if (sub === 'add') {
@@ -53,26 +61,19 @@ module.exports = {
         SendMessages: true,
         ReadMessageHistory: true,
       });
-      await interaction.reply({ content: `✅ ${userToAdd} wurde zum Ticket von ${target} hinzugefügt.`, ephemeral: true });
+      return interaction.reply({ content: `✅ ${userToAdd} has been added to ${target}'s ticket.`, ephemeral: true });
     }
 
     if (sub === 'remove') {
       const userToRemove = interaction.options.getUser('remove');
       await ch.permissionOverwrites.delete(userToRemove.id);
-      await interaction.reply({ content: `✅ ${userToRemove} wurde aus dem Ticket von ${target} entfernt.`, ephemeral: true });
+      return interaction.reply({ content: `✅ ${userToRemove} has been removed from ${target}'s ticket.`, ephemeral: true });
     }
 
     if (sub === 'rename') {
       const newName = interaction.options.getString('name').toLowerCase().replace(/[^a-z0-9]/g, '-');
       await ch.setName(newName);
-      await interaction.reply({ content: `✅ Ticket wurde zu **${newName}** umbenannt.`, ephemeral: true });
-    }
-
-    if (sub === 'reset') {
-      cart.orderChannelId = null;
-      cart.orderMessageId = null;
-      await saveCart(target.id, cart);
-      await interaction.reply({ content: `✅ Ticket-Link für ${target} zurückgesetzt. Beim nächsten "Add to Cart" wird ein neues Ticket in der richtigen Kategorie erstellt.`, ephemeral: true });
+      return interaction.reply({ content: `✅ Ticket renamed to **${newName}**.`, ephemeral: true });
     }
   },
 };

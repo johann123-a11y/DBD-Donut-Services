@@ -17,13 +17,13 @@ module.exports = {
       sub.setName('create')
         .setDescription('Create a new shop item')
         .addStringOption(o => o.setName('title').setDescription('Item name').setRequired(true))
-        .addStringOption(o => o.setName('price').setDescription('Preis z.B. 1m, 500k, 1b').setRequired(true))
+        .addStringOption(o => o.setName('price').setDescription('Price e.g. 1m, 500k, 1b').setRequired(true))
         .addAttachmentOption(o => o.setName('image').setDescription('Item image').setRequired(false))
         .addStringOption(o => o.setName('image_url').setDescription('Or paste an image URL').setRequired(false))
     )
     .addSubcommand(sub =>
       sub.setName('delete')
-        .setDescription('Delete a shop item')
+        .setDescription('Delete a shop item by name')
         .addStringOption(o => o.setName('name').setDescription('Item name').setRequired(true))
     ),
 
@@ -32,7 +32,7 @@ module.exports = {
 
     if (sub === 'create') {
       const title    = interaction.options.getString('title');
-      const price    = interaction.options.getNumber('price');
+      const price    = interaction.options.getString('price');
       const attach   = interaction.options.getAttachment('image');
       const imageUrl = attach?.url ?? interaction.options.getString('image_url') ?? null;
 
@@ -60,7 +60,7 @@ module.exports = {
         const ch  = await interaction.client.channels.fetch(item.channelId);
         const msg = await ch.messages.fetch(item.messageId);
         await msg.delete();
-      } catch { /* already deleted */ }
+      } catch { /* message already deleted */ }
 
       await deleteShop(item._id);
       await interaction.reply({ content: `✅ **${item.title}** deleted.`, ephemeral: true });

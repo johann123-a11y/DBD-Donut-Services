@@ -29,8 +29,8 @@ module.exports = {
     if (!config.pingRoles) config.pingRoles = [];
 
     if (sub === 'list') {
-      const users = config.pingUsers.map(id => `<@${id}>`).join(', ') || '-';
-      const roles = config.pingRoles.map(id => `<@&${id}>`).join(', ') || '-';
+      const users = config.pingUsers.map(id => `<@${id}>`).join(', ') || 'None';
+      const roles = config.pingRoles.map(id => `<@&${id}>`).join(', ') || 'None';
       return interaction.reply({ content: `📣 **Ping Users:** ${users}\n📣 **Ping Roles:** ${roles}`, ephemeral: true });
     }
 
@@ -38,27 +38,27 @@ module.exports = {
     const role = interaction.options.getRole('role');
 
     if (!user && !role) {
-      return interaction.reply({ content: '❌ Bitte einen User oder eine Rolle angeben.', ephemeral: true });
+      return interaction.reply({ content: '❌ Please specify a user or role.', ephemeral: true });
     }
 
     if (sub === 'add') {
       if (user) {
-        if (config.pingUsers.includes(user.id)) return interaction.reply({ content: `${user} ist bereits auf der Liste.`, ephemeral: true });
+        if (config.pingUsers.includes(user.id)) return interaction.reply({ content: `${user} is already on the ping list.`, ephemeral: true });
         config.pingUsers.push(user.id);
       }
       if (role) {
-        if (config.pingRoles.includes(role.id)) return interaction.reply({ content: `${role} ist bereits auf der Liste.`, ephemeral: true });
+        if (config.pingRoles.includes(role.id)) return interaction.reply({ content: `${role} is already on the ping list.`, ephemeral: true });
         config.pingRoles.push(role.id);
       }
       await saveConfig({ pingUsers: config.pingUsers, pingRoles: config.pingRoles });
-      return interaction.reply({ content: `✅ ${user ?? role} zur Ping-Liste hinzugefügt.`, ephemeral: true });
+      return interaction.reply({ content: `✅ ${user ?? role} added to the ping list.`, ephemeral: true });
     }
 
     if (sub === 'remove') {
       if (user) config.pingUsers = config.pingUsers.filter(id => id !== user.id);
       if (role) config.pingRoles = config.pingRoles.filter(id => id !== role.id);
       await saveConfig({ pingUsers: config.pingUsers, pingRoles: config.pingRoles });
-      return interaction.reply({ content: `✅ ${user ?? role} von der Ping-Liste entfernt.`, ephemeral: true });
+      return interaction.reply({ content: `✅ ${user ?? role} removed from the ping list.`, ephemeral: true });
     }
   },
 };

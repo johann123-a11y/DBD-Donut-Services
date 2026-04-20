@@ -13,7 +13,7 @@ module.exports = {
     )
     .addSubcommand(sub =>
       sub.setName('add')
-        .setDescription('Add a user to the current order ticket')
+        .setDescription('Add a user to an existing order ticket')
         .addUserOption(o => o.setName('user').setDescription('User to add').setRequired(true))
     ),
 
@@ -27,7 +27,7 @@ module.exports = {
       }
       const config = await getConfig();
       config.ticketCategoryId = category.id;
-      await saveConfig(config);
+      await saveConfig({ ticketCategoryId: category.id });
       await interaction.reply({ content: `✅ Order tickets will now be created in **${category.name}**.`, ephemeral: true });
     }
 
@@ -46,9 +46,9 @@ module.exports = {
           SendMessages: true,
           ReadMessageHistory: true,
         });
-        await interaction.reply({ content: `✅ ${target} wurde zum Ticket hinzugefügt.`, ephemeral: true });
+        await interaction.reply({ content: `✅ ${target} has been added to the ticket.`, ephemeral: true });
       } catch {
-        await interaction.reply({ content: '❌ Konnte den User nicht hinzufügen.', ephemeral: true });
+        await interaction.reply({ content: '❌ Could not add the user to the ticket.', ephemeral: true });
       }
     }
   },

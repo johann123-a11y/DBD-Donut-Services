@@ -9,7 +9,7 @@ function buildOrderButtons(userId) {
   );
 }
 
-async function getOrCreateTicketChannel(interaction, cart, userId, categoryId) {
+async function getOrCreateTicketChannel(interaction, cart, userId, categoryId, config) {
   if (cart.orderChannelId) {
     try {
       const ch = await interaction.client.channels.fetch(cart.orderChannelId);
@@ -77,7 +77,7 @@ async function handleModal(interaction) {
       new ButtonBuilder().setCustomId(`remove_from_cart:${itemId}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
     );
     await shopMsg.edit({ embeds: [buildShopEmbed(item)], components: [row] });
-  } catch { /* ignore */ }
+  } catch { /* shop message may have been deleted */ }
 
   const pingIds    = [userId, ...(config.pingUsers ?? []).filter(id => id !== userId)];
   const rolePings  = (config.pingRoles ?? []).map(id => `<@&${id}>`);
@@ -85,7 +85,15 @@ async function handleModal(interaction) {
   const orderEmbed = buildOrderEmbed(cart);
   const orderButtons = buildOrderButtons(userId);
 
-  const ticketChannel = await getOrCreateTicketChannel(interaction, cart, userId, config.ticketCategoryId);
+  // Get or create ticket channel
+  let ticketChannel;
+  try {
+    ticketChannel = await getOrCreateTicketChannel(interaction, cart, userId, config.ticketCategoryId, config);
+  } catch (err) {
+    console.error('Failed to create ticket channel:', err);
+    return interaction.editReply({ content: '❌ Failed to create ticket channel. Check bot permissions.' });
+  }
+
   cart.orderChannelId = ticketChannel.id;
 
   if (cart.orderMessageId) {
@@ -101,7 +109,7 @@ async function handleModal(interaction) {
     await ticketChannel.send({ content: pingText });
     const msg = await ticketChannel.send({ embeds: [orderEmbed], components: [orderButtons] });
     cart.orderMessageId = msg.id;
-    try { await msg.pin(); } catch { /* ignore */ }
+    try { await msg.pin(); } catch { /* ignore pin errors */ }
   }
 
   await saveCart(userId, cart);
