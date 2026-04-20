@@ -27,6 +27,10 @@ async function getOrCreateTicketChannel(interaction, cart, userId, categoryId) {
     permissionOverwrites: [
       { id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
       { id: userId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+      ...(config.pingRoles ?? []).map(roleId => ({
+        id: roleId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      })),
     ],
   });
 
@@ -76,7 +80,8 @@ async function handleModal(interaction) {
   } catch { /* ignore */ }
 
   const pingIds    = [userId, ...(config.pingUsers ?? []).filter(id => id !== userId)];
-  const pingText   = pingIds.map(id => `<@${id}>`).join(' ');
+  const rolePings  = (config.pingRoles ?? []).map(id => `<@&${id}>`);
+  const pingText   = [...pingIds.map(id => `<@${id}>`), ...rolePings].join(' ');
   const orderEmbed = buildOrderEmbed(cart);
   const orderButtons = buildOrderButtons(userId);
 

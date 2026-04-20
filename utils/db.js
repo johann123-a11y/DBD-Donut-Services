@@ -40,7 +40,8 @@ const cartSchema = new mongoose.Schema({
 
 const configSchema = new mongoose.Schema({
   _id:             { type: String, default: 'global' },
-  pingUsers:       { type: [String], default: [] },
+  pingUsers:        { type: [String], default: [] },
+  pingRoles:        { type: [String], default: [] },
   ticketCategoryId: { type: String, default: null },
 });
 
