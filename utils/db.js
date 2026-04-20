@@ -39,8 +39,9 @@ const cartSchema = new mongoose.Schema({
 });
 
 const configSchema = new mongoose.Schema({
-  _id:       { type: String, default: 'global' },
-  pingUsers: { type: [String], default: [] },
+  _id:             { type: String, default: 'global' },
+  pingUsers:       { type: [String], default: [] },
+  ticketCategoryId: { type: String, default: null },
 });
 
 // ── Models ───────────────────────────────────────────────────────────────────
@@ -65,6 +66,6 @@ async function getConfig() {
   if (!cfg) cfg = await Config.create({ _id: 'global' });
   return cfg;
 }
-async function saveConfig(data) { return Config.findByIdAndUpdate('global', data, { upsert: true, new: true }); }
+async function saveConfig(data) { return Config.findByIdAndUpdate('global', { $set: data }, { upsert: true, new: true }); }
 
 module.exports = { connectDB, getShop, saveShop, deleteShop, findShopByName, getAllShops, getCart, saveCart, getConfig, saveConfig };

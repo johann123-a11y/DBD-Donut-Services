@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { getCart } = require('../utils/db');
+const { getCart, saveCart } = require('../utils/db');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -23,6 +23,11 @@ module.exports = {
         .setDescription('Rename a ticket channel')
         .addUserOption(o => o.setName('user').setDescription('User whose ticket to rename').setRequired(true))
         .addStringOption(o => o.setName('name').setDescription('New channel name').setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub.setName('reset')
+        .setDescription('Reset ticket channel link (so next order creates a new one in the correct category)')
+        .addUserOption(o => o.setName('user').setDescription('User to reset').setRequired(true))
     ),
 
   async execute(interaction) {
@@ -61,6 +66,13 @@ module.exports = {
       const newName = interaction.options.getString('name').toLowerCase().replace(/[^a-z0-9]/g, '-');
       await ch.setName(newName);
       await interaction.reply({ content: `✅ Ticket wurde zu **${newName}** umbenannt.`, ephemeral: true });
+    }
+
+    if (sub === 'reset') {
+      cart.orderChannelId = null;
+      cart.orderMessageId = null;
+      await saveCart(target.id, cart);
+      await interaction.reply({ content: `✅ Ticket-Link für ${target} zurückgesetzt. Beim nächsten "Add to Cart" wird ein neues Ticket in der richtigen Kategorie erstellt.`, ephemeral: true });
     }
   },
 };
