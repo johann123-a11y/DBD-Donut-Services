@@ -14,8 +14,9 @@ module.exports = {
         {
           name: '🛒 Shop',
           value: [
-            '`/shop create` — Create a new shop item (title, price, image)',
-            '`/shop delete` — Delete a shop item by name',
+            '`/shop create` — Save a new shop item to the database (not posted yet)',
+            '`/shop spawn` — Post all saved items in this channel (reposts deleted ones)',
+            '`/shop delete` — Permanently delete a shop item by name (only way to remove)',
           ].join('\n'),
         },
         {
