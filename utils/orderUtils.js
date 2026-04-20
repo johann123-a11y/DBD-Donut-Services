@@ -23,12 +23,14 @@ function generateItemId() {
 function buildShopEmbed(item) {
   const embed = new EmbedBuilder()
     .setColor(0x2b2d31)
-    .setTitle(item.title)
+    .setTitle(item.title || 'Untitled')
     .addFields(
-      { name: 'Price', value: item.price }
+      { name: 'Price', value: item.price || 'N/A' }
     );
 
-  if (item.imageUrl) embed.setImage(item.imageUrl);
+  if (item.imageUrl) {
+    try { embed.setImage(item.imageUrl); } catch { /* skip invalid URL */ }
+  }
   return embed;
 }
 

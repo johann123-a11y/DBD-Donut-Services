@@ -100,7 +100,8 @@ module.exports = {
         await interaction.editReply({ content: `✅ Spawned **${items.length}** items across **${messages}** message(s).` });
       } catch (err) {
         console.error('Spawn error:', err);
-        await interaction.editReply({ content: `❌ Spawn failed: ${err.message}` });
+        const detail = err.rawError ? JSON.stringify(err.rawError).slice(0, 300) : err.message;
+        await interaction.editReply({ content: `❌ Spawn failed: ${detail}` });
       }
     }
 
