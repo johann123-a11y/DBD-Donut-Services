@@ -34,6 +34,21 @@ module.exports = {
           ].join('\n'),
         },
         {
+          name: '🎫 Cart / Ticket',
+          value: [
+            '`/cart add @user @add` — Person zum Ticket hinzufügen',
+            '`/cart remove @user @remove` — Person aus Ticket entfernen',
+            '`/cart rename @user name` — Ticket-Channel umbenennen',
+          ].join('\n'),
+        },
+        {
+          name: '⚙️ Einstellungen',
+          value: [
+            '`/order ticket category:` — Kategorie für Order-Tickets setzen',
+            '`/order add @user` — Person zu bestehendem Ticket hinzufügen',
+          ].join('\n'),
+        },
+        {
           name: '❓ Info',
           value: '`/commands` — Show this message',
         },
