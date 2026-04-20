@@ -38,6 +38,15 @@ module.exports = {
         .setDescription('Post all shop items in this channel')
     )
     .addSubcommand(sub =>
+      sub.setName('edit')
+        .setDescription('Edit an existing shop item (updates all posted messages)')
+        .addStringOption(o => o.setName('name').setDescription('Current item name').setRequired(true))
+        .addStringOption(o => o.setName('new_title').setDescription('New title').setRequired(false))
+        .addStringOption(o => o.setName('new_price').setDescription('New price e.g. 1m, 500k, 1b').setRequired(false))
+        .addAttachmentOption(o => o.setName('new_image').setDescription('New image').setRequired(false))
+        .addStringOption(o => o.setName('new_image_url').setDescription('New image URL').setRequired(false))
+    )
+    .addSubcommand(sub =>
       sub.setName('delete')
         .setDescription('Delete a shop item by name (removes all posted messages)')
         .addStringOption(o => o.setName('name').setDescription('Item name').setRequired(true))
@@ -87,6 +96,55 @@ module.exports = {
         console.error('Spawn error:', err);
         await interaction.editReply({ content: `❌ Spawn failed: ${err.message}` });
       }
+    }
+
+    if (sub === 'edit') {
+      const name      = interaction.options.getString('name');
+      const item      = await findShopByName(name);
+      if (!item) return interaction.reply({ content: `❌ No item found with name **${name}**.`, ephemeral: true });
+
+      await interaction.deferReply({ ephemeral: true });
+
+      const newTitle    = interaction.options.getString('new_title');
+      const newPrice    = interaction.options.getString('new_price');
+      const newAttach   = interaction.options.getAttachment('new_image');
+      const newImageUrl = newAttach?.url ?? interaction.options.getString('new_image_url');
+
+      if (!newTitle && !newPrice && !newImageUrl) {
+        return interaction.editReply({ content: '❌ Please provide at least one field to update.' });
+      }
+
+      // Apply changes
+      if (newTitle)    item.title    = newTitle;
+      if (newPrice)    item.price    = newPrice;
+      if (newImageUrl) item.imageUrl = newImageUrl;
+
+      await saveShop(String(item._id), {
+        title:    item.title,
+        price:    item.price,
+        imageUrl: item.imageUrl,
+      });
+
+      // Update all posted messages
+      const embed = buildShopEmbed(item);
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`add_to_cart:${item._id}`).setLabel('Add to Cart').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`remove_from_cart:${item._id}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
+      );
+
+      let updated = 0;
+      for (const { messageId, channelId } of (item.messages ?? [])) {
+        try {
+          const ch  = await interaction.client.channels.fetch(channelId);
+          const msg = await ch.messages.fetch(messageId);
+          await msg.edit({ embeds: [embed], components: [row] });
+          updated++;
+        } catch { /* message deleted, skip */ }
+      }
+
+      await interaction.editReply({
+        content: `✅ **${item.title}** updated (${updated} message(s) refreshed).`,
+      });
     }
 
     if (sub === 'delete') {
