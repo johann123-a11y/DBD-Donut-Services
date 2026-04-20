@@ -5,7 +5,7 @@ const {
   ButtonStyle,
   PermissionFlagsBits,
 } = require('discord.js');
-const { getShop, saveShop, deleteShop } = require('../utils/db');
+const { getShop, saveShop, deleteShop, findShopByName } = require('../utils/db');
 const { generateItemId, buildShopEmbed } = require('../utils/orderUtils');
 
 module.exports = {
@@ -24,7 +24,7 @@ module.exports = {
     .addSubcommand(sub =>
       sub.setName('delete')
         .setDescription('Delete a shop item')
-        .addStringOption(o => o.setName('item_id').setDescription('Item ID').setRequired(true))
+        .addStringOption(o => o.setName('name').setDescription('Item name').setRequired(true))
     ),
 
   async execute(interaction) {
@@ -52,9 +52,9 @@ module.exports = {
     }
 
     if (sub === 'delete') {
-      const itemId = interaction.options.getString('item_id');
-      const item   = await getShop(itemId);
-      if (!item) return interaction.reply({ content: '❌ Item not found.', ephemeral: true });
+      const name = interaction.options.getString('name');
+      const item = await findShopByName(name);
+      if (!item) return interaction.reply({ content: `❌ No item found with name **${name}**.`, ephemeral: true });
 
       try {
         const ch  = await interaction.client.channels.fetch(item.channelId);
@@ -62,8 +62,8 @@ module.exports = {
         await msg.delete();
       } catch { /* already deleted */ }
 
-      await deleteShop(itemId);
-      await interaction.reply({ content: `✅ Item \`${itemId}\` deleted.`, ephemeral: true });
+      await deleteShop(item._id);
+      await interaction.reply({ content: `✅ **${item.title}** deleted.`, ephemeral: true });
     }
   },
 };
