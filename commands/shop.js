@@ -82,29 +82,16 @@ module.exports = {
         let skipped = 0;
 
         for (const item of items) {
-          let messageExists = false;
-          if (item.messageId && item.channelId) {
-            try {
-              const ch = await interaction.client.channels.fetch(item.channelId);
-              await ch.messages.fetch(item.messageId);
-              messageExists = true;
-            } catch { /* message was deleted, will repost */ }
-          }
-
-          if (!messageExists) {
-            try {
-              await spawnShopItem(channel, item);
-              posted++;
-            } catch (err) {
-              console.error(`Failed to spawn item ${item._id}:`, err);
-            }
-          } else {
-            skipped++;
+          try {
+            await spawnShopItem(channel, item);
+            posted++;
+          } catch (err) {
+            console.error(`Failed to spawn item ${item._id}:`, err);
           }
         }
 
         await interaction.editReply({
-          content: `✅ Spawn complete — **${posted}** posted, **${skipped}** already active.`,
+          content: `✅ Spawn complete — **${posted}** items posted.`,
         });
       } catch (err) {
         console.error('Spawn error:', err);
