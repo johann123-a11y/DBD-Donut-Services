@@ -59,6 +59,7 @@ async function addShopMessage(id, messageId, channelId) {
 async function deleteShop(id)           { return Shop.findByIdAndDelete(id); }
 async function findShopByName(name)     { return Shop.findOne({ title: { $regex: new RegExp(`^${name}$`, 'i') } }).lean(); }
 async function getAllShops()             { return Shop.find().lean(); }
+async function getShopsByMessageId(messageId) { return Shop.find({ 'messages.messageId': messageId }).lean(); }
 
 async function getCart(userId)        { return Cart.findById(userId).lean(); }
 async function saveCart(userId, data) { return Cart.findByIdAndUpdate(userId, { _id: userId, ...data }, { upsert: true, new: true, overwrite: true }); }
@@ -70,4 +71,4 @@ async function getConfig() {
 }
 async function saveConfig(data) { return Config.findByIdAndUpdate('global', { $set: data }, { upsert: true, new: true }); }
 
-module.exports = { connectDB, getShop, saveShop, addShopMessage, deleteShop, findShopByName, getAllShops, getCart, saveCart, getConfig, saveConfig };
+module.exports = { connectDB, getShop, saveShop, addShopMessage, deleteShop, findShopByName, getAllShops, getShopsByMessageId, getCart, saveCart, getConfig, saveConfig };
