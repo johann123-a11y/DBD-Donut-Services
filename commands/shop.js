@@ -9,13 +9,21 @@ const { getShop, saveShop, deleteShop, findShopByName, getAllShops } = require('
 const { generateItemId, buildShopEmbed } = require('../utils/orderUtils');
 
 async function spawnShopItem(channel, item) {
-  const embed = buildShopEmbed(item);
+  const itemId = String(item._id);
+  const embed  = buildShopEmbed(item);
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`add_to_cart:${item._id ?? item.id}`).setLabel('Add to Cart').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`remove_from_cart:${item._id ?? item.id}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId(`add_to_cart:${itemId}`).setLabel('Add to Cart').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`remove_from_cart:${itemId}`).setLabel('Remove from Cart').setStyle(ButtonStyle.Danger),
   );
   const msg = await channel.send({ embeds: [embed], components: [row] });
-  await saveShop(item._id ?? item.id, { ...item, messageId: msg.id, channelId: channel.id });
+  await saveShop(itemId, {
+    title:     item.title,
+    price:     item.price,
+    imageUrl:  item.imageUrl,
+    createdBy: item.createdBy,
+    messageId: msg.id,
+    channelId: channel.id,
+  });
   return msg;
 }
 
