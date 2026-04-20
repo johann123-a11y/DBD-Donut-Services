@@ -26,7 +26,15 @@ async function spawnItems(channel, items) {
       )
     );
 
-    const msg = await channel.send({ embeds, components: rows });
+    console.log('[spawn] sending chunk:', chunk.map(i => ({ id: i._id, title: i.title, price: i.price, imageUrl: i.imageUrl })));
+
+    let msg;
+    try {
+      msg = await channel.send({ embeds, components: rows });
+    } catch (err) {
+      console.error('[spawn] Discord send error:', JSON.stringify(err.rawError ?? err.message, null, 2));
+      throw err;
+    }
 
     for (const item of chunk) {
       await addShopMessage(String(item._id), msg.id, channel.id);
