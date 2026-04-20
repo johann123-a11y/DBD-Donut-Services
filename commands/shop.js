@@ -11,7 +11,7 @@ const { generateItemId, buildShopEmbed } = require('../utils/orderUtils');
 // Spawn all items grouped into as few messages as possible
 // Discord limit: 10 embeds + 5 action rows per message → max 5 items per message (1 row per item, 2 buttons each)
 async function spawnItems(channel, items) {
-  const ITEMS_PER_MSG = 5;
+  const ITEMS_PER_MSG = 1;
   const chunks = [];
   for (let i = 0; i < items.length; i += ITEMS_PER_MSG) {
     chunks.push(items.slice(i, i + ITEMS_PER_MSG));
