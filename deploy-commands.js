@@ -14,12 +14,12 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
   try {
-    console.log(`Registering ${commands.length} commands...`);
+    console.log(`Registering ${commands.length} commands globally...`);
     await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands }
     );
-    console.log('✅ Commands registered successfully.');
+    console.log('✅ Commands registered globally (may take up to 1 hour to appear on all servers).');
   } catch (err) {
     console.error(err);
   }
