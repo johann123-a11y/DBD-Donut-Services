@@ -7,9 +7,9 @@ module.exports = {
     .setDescription('Order settings')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand(sub =>
-      sub.setName('ticket')
-        .setDescription('Set the category where order tickets are created')
-        .addChannelOption(o => o.setName('category').setDescription('The category channel').setRequired(true))
+      sub.setName('category')
+        .setDescription('Set the category ID where order tickets are created on this server')
+        .addStringOption(o => o.setName('id').setDescription('Category ID (right-click category → Copy ID)').setRequired(true))
     )
     .addSubcommand(sub =>
       sub.setName('add')
@@ -18,17 +18,13 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
+    const sub     = interaction.options.getSubcommand();
+    const guildId = interaction.guildId;
 
-    if (sub === 'ticket') {
-      const category = interaction.options.getChannel('category');
-      if (category.type !== 4) {
-        return interaction.reply({ content: '❌ Please select a **Category**, not a regular channel.', ephemeral: true });
-      }
-      const config = await getConfig();
-      config.ticketCategoryId = category.id;
-      await saveConfig({ ticketCategoryId: category.id });
-      await interaction.reply({ content: `✅ Order tickets will now be created in **${category.name}**.`, ephemeral: true });
+    if (sub === 'category') {
+      const id = interaction.options.getString('id').trim();
+      await saveConfig(guildId, { ticketCategoryId: id });
+      await interaction.reply({ content: `✅ Order tickets will now be created in category \`${id}\` on this server.`, ephemeral: true });
     }
 
     if (sub === 'add') {

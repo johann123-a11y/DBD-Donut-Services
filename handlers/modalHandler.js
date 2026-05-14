@@ -50,7 +50,7 @@ async function handleModal(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
   const item   = await getShop(itemId);
-  const config = await getConfig();
+  const config = await getConfig(interaction.guildId);
 
   if (!item) return interaction.editReply({ content: '❌ Item no longer exists.' });
 

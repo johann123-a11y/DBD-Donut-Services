@@ -23,8 +23,9 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const sub    = interaction.options.getSubcommand();
-    const config = await getConfig();
+    const sub     = interaction.options.getSubcommand();
+    const guildId = interaction.guildId;
+    const config  = await getConfig(guildId);
     if (!config.pingUsers) config.pingUsers = [];
     if (!config.pingRoles) config.pingRoles = [];
 
@@ -50,14 +51,14 @@ module.exports = {
         if (config.pingRoles.includes(role.id)) return interaction.reply({ content: `${role} is already on the ping list.`, ephemeral: true });
         config.pingRoles.push(role.id);
       }
-      await saveConfig({ pingUsers: config.pingUsers, pingRoles: config.pingRoles });
+      await saveConfig(guildId, { pingUsers: config.pingUsers, pingRoles: config.pingRoles });
       return interaction.reply({ content: `✅ ${user ?? role} added to the ping list.`, ephemeral: true });
     }
 
     if (sub === 'remove') {
       if (user) config.pingUsers = config.pingUsers.filter(id => id !== user.id);
       if (role) config.pingRoles = config.pingRoles.filter(id => id !== role.id);
-      await saveConfig({ pingUsers: config.pingUsers, pingRoles: config.pingRoles });
+      await saveConfig(guildId, { pingUsers: config.pingUsers, pingRoles: config.pingRoles });
       return interaction.reply({ content: `✅ ${user ?? role} removed from the ping list.`, ephemeral: true });
     }
   },

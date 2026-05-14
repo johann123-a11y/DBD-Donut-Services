@@ -64,11 +64,13 @@ async function getShopsByMessageId(messageId) { return Shop.find({ 'messages.mes
 async function getCart(userId)        { return Cart.findById(userId).lean(); }
 async function saveCart(userId, data) { return Cart.findByIdAndUpdate(userId, { _id: userId, ...data }, { upsert: true, new: true, overwrite: true }); }
 
-async function getConfig() {
-  let cfg = await Config.findById('global').lean();
-  if (!cfg) cfg = await Config.create({ _id: 'global' });
+async function getConfig(guildId = 'global') {
+  let cfg = await Config.findById(guildId).lean();
+  if (!cfg) cfg = await Config.create({ _id: guildId });
   return cfg;
 }
-async function saveConfig(data) { return Config.findByIdAndUpdate('global', { $set: data }, { upsert: true, new: true }); }
+async function saveConfig(guildId = 'global', data) {
+  return Config.findByIdAndUpdate(guildId, { $set: data }, { upsert: true, new: true });
+}
 
 module.exports = { connectDB, getShop, saveShop, addShopMessage, deleteShop, findShopByName, getAllShops, getShopsByMessageId, getCart, saveCart, getConfig, saveConfig };
