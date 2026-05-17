@@ -71,6 +71,14 @@ module.exports = {
         .addStringOption(o => o.setName('new_image_url').setDescription('New image URL').setRequired(false))
     )
     .addSubcommand(sub =>
+      sub.setName('send')
+        .setDescription('Create an item and immediately post it in this channel')
+        .addStringOption(o => o.setName('title').setDescription('Item name').setRequired(true))
+        .addStringOption(o => o.setName('price').setDescription('Price e.g. 1m, 500k, 1b').setRequired(true))
+        .addAttachmentOption(o => o.setName('image').setDescription('Item image').setRequired(false))
+        .addStringOption(o => o.setName('image_url').setDescription('Or paste an image URL').setRequired(false))
+    )
+    .addSubcommand(sub =>
       sub.setName('delete')
         .setDescription('Permanently delete a shop item by name')
         .addStringOption(o => o.setName('name').setDescription('Item name').setRequired(true))
@@ -93,6 +101,29 @@ module.exports = {
         content: `✅ **${title}** saved. Use \`/shop spawn\` to post all items.`,
         ephemeral: true,
       });
+    }
+
+    // ── SEND ──────────────────────────────────────────────────────────────────
+    if (sub === 'send') {
+      await interaction.deferReply({ ephemeral: true });
+      try {
+        const title    = interaction.options.getString('title');
+        const price    = interaction.options.getString('price');
+        const attach   = interaction.options.getAttachment('image');
+        const imageUrl = attach?.url ?? interaction.options.getString('image_url') ?? null;
+
+        const itemId = generateItemId();
+        const item   = { _id: itemId, title, price, imageUrl, createdBy: interaction.user.id, messages: [] };
+        await saveShop(itemId, { title, price, imageUrl, createdBy: interaction.user.id, messages: [] });
+
+        const channel = interaction.channel ?? await interaction.client.channels.fetch(interaction.channelId);
+        await spawnItems(channel, [item]);
+
+        await interaction.editReply({ content: `✅ **${title}** created and posted.` });
+      } catch (err) {
+        console.error('Send error:', err);
+        await interaction.editReply({ content: `❌ Failed: ${err.message}` });
+      }
     }
 
     // ── SPAWN ─────────────────────────────────────────────────────────────────
