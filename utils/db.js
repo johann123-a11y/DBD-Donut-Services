@@ -34,6 +34,10 @@ const cartSchema = new mongoose.Schema({
   orderMessageId: String,
   orderChannelId: String,
   status:         { type: String, default: 'waiting' },
+  nickname:       { type: String, default: null },
+  coordX:         { type: String, default: null },
+  coordY:         { type: String, default: null },
+  coordZ:         { type: String, default: null },
 });
 
 const configSchema = new mongoose.Schema({

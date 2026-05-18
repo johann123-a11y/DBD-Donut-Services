@@ -42,6 +42,10 @@ async function handleModal(interaction) {
 
   const itemId   = interaction.customId.split(':')[1];
   const quantity = parseInt(interaction.fields.getTextInputValue('quantity'), 10);
+  const nickname = interaction.fields.getTextInputValue('nickname');
+  const coordX   = interaction.fields.getTextInputValue('coord_x');
+  const coordY   = interaction.fields.getTextInputValue('coord_y');
+  const coordZ   = interaction.fields.getTextInputValue('coord_z');
 
   if (isNaN(quantity) || quantity < 1) {
     return interaction.reply({ content: '❌ Please enter a valid quantity (minimum 1).', ephemeral: true });
@@ -60,6 +64,12 @@ async function handleModal(interaction) {
   if (!cart) {
     cart = { _id: userId, orderId: generateOrderId(), items: [], orderMessageId: null, orderChannelId: null, status: 'waiting' };
   }
+
+  // Always update delivery info with latest submission
+  cart.nickname = nickname;
+  cart.coordX   = coordX;
+  cart.coordY   = coordY;
+  cart.coordZ   = coordZ;
 
   const existing = cart.items.find(e => e.shopItemId === itemId);
   if (existing) {

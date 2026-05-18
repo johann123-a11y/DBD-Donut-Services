@@ -8,11 +8,19 @@ async function handleButton(interaction) {
 
   if (action === 'add_to_cart') {
     const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-    const modal = new ModalBuilder().setCustomId(`add_to_cart_modal:${targetId}`).setTitle('Add to Cart');
-    const quantityInput = new TextInputBuilder()
-      .setCustomId('quantity').setLabel('Quantity').setPlaceholder('Enter quantity')
-      .setStyle(TextInputStyle.Short).setRequired(true).setMinLength(1).setMaxLength(4);
-    modal.addComponents(new ActionRowBuilder().addComponents(quantityInput));
+    const modal = new ModalBuilder().setCustomId(`add_to_cart_modal:${targetId}`).setTitle('Checkout');
+    const make = (id, label, placeholder) =>
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId(id).setLabel(label).setPlaceholder(placeholder)
+          .setStyle(TextInputStyle.Short).setRequired(true)
+      );
+    modal.addComponents(
+      make('quantity', 'Quantity', 'e.g. 2'),
+      make('nickname', 'Nickname in Game', 'Enter your in-game nickname'),
+      make('coord_x',  'Coordinate: X',   'Enter X coordinate'),
+      make('coord_y',  'Coordinate: Y',   'Enter Y coordinate'),
+      make('coord_z',  'Coordinate: Z',   'Enter Z coordinate'),
+    );
     await interaction.showModal(modal);
   }
 

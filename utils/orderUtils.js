@@ -38,6 +38,17 @@ function buildOrderEmbed(cart) {
   let description = '';
   let totalKits = 0;
 
+  // Delivery info at the top
+  if (cart.nickname || cart.coordX) {
+    description += `**📋 Delivery Info**\n`;
+    if (cart.nickname) description += `Nickname: \`${cart.nickname}\`\n`;
+    if (cart.coordX)   description += `X: \`${cart.coordX}\`\n`;
+    if (cart.coordY)   description += `Y: \`${cart.coordY}\`\n`;
+    if (cart.coordZ)   description += `Z: \`${cart.coordZ}\`\n`;
+    description += '\n';
+  }
+
+  // Items
   for (const entry of cart.items) {
     description += `**${entry.title}**\n${entry.quantity} pcs — ${String(entry.price ?? 'N/A')}\n\n`;
     totalKits += entry.quantity;
