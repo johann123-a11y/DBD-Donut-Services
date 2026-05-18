@@ -260,7 +260,7 @@ async function handleButton(interaction) {
     const cart = await getCart(targetId);
     if (!cart) return interaction.reply({ content: '❌ Cart not found.', ephemeral: true });
 
-    const cleared = { ...cart, items: [], status: 'waiting', deliverySpeed: null, deliveryFee: null, paymentMethod: null, discountCode: null, discountPercent: null };
+    const cleared = { ...cart, items: [], status: 'waiting', nickname: null, coordX: null, coordY: null, coordZ: null, deliverySpeed: null, deliveryFee: null, paymentMethod: null, discountCode: null, discountPercent: null };
     await saveCart(targetId, cleared);
 
     try {
