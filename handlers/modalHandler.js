@@ -7,7 +7,6 @@ function buildOrderButtons(userId) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`checkout_start:${userId}`).setLabel('Checkout').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`apply_discount:${userId}`).setLabel('Discount / Referral').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`remove_item:${userId}`).setLabel('Remove Item').setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId(`clear_order:${userId}`).setLabel('Clear Cart').setStyle(ButtonStyle.Danger),
     ),
     new ActionRowBuilder().addComponents(
