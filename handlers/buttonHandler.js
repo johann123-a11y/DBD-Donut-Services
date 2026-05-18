@@ -58,6 +58,27 @@ async function handleButton(interaction) {
     await interaction.reply({ content: `✅ **${existing.title}** removed from your cart.`, ephemeral: true });
   }
 
+  // ── REMOVE ITEM → modal ──────────────────────────────────────────────────
+  if (action === 'remove_item') {
+    const userId = targetId;
+    if (interaction.user.id !== userId && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ This is not your order.', ephemeral: true });
+    }
+    const cart = await getCart(userId);
+    if (!cart?.items?.length) return interaction.reply({ content: '❌ Your cart is empty.', ephemeral: true });
+
+    const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+    const itemList = cart.items.map((e, i) => `${i + 1}. ${e.title}`).join('\n');
+    const modal = new ModalBuilder().setCustomId(`remove_item_modal:${userId}`).setTitle('Remove Item');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('item_name').setLabel('Item name to remove')
+          .setPlaceholder(itemList).setStyle(TextInputStyle.Short).setRequired(true)
+      )
+    );
+    await interaction.showModal(modal);
+  }
+
   // ── CHECKOUT START → info modal ───────────────────────────────────────────
   if (action === 'checkout_start') {
     const userId = targetId;

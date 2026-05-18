@@ -5,17 +5,15 @@ const { generateOrderId, buildOrderEmbed } = require('../utils/orderUtils');
 function buildOrderButtons(userId) {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`close_order:${userId}`).setLabel('Close Order').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId(`clear_order:${userId}`).setLabel('Clear Order').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`checkout_start:${userId}`).setLabel('Checkout').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`apply_discount:${userId}`).setLabel('Discount / Referral').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`remove_item:${userId}`).setLabel('Remove Item').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`clear_order:${userId}`).setLabel('Clear Cart').setStyle(ButtonStyle.Danger),
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`close_order:${userId}`).setLabel('Close Ticket').setStyle(ButtonStyle.Secondary),
     ),
   ];
-}
-
-function buildCheckoutButton(userId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`checkout_start:${userId}`).setLabel('Checkout').setStyle(ButtonStyle.Success),
-  );
 }
 
 async function getOrCreateTicketChannel(interaction, cart, userId, categoryId, config) {
@@ -90,13 +88,9 @@ async function handleModal(interaction) {
 
     cart.orderChannelId = ticketChannel.id;
 
-    // New channel: send ping + checkout button first
+    // New channel: send ping
     if (isNew) {
       await ticketChannel.send({ content: pingText });
-      await ticketChannel.send({
-        content: '> Click **Checkout** when you are ready to complete your order.',
-        components: [buildCheckoutButton(userId)],
-      });
     }
 
     // Order embed (pinned, updated on changes)
@@ -156,6 +150,33 @@ async function handleModal(interaction) {
 
     await saveCart(userId, cart);
     await interaction.editReply({ content: '✅ Info saved! Now select your delivery speed in the ticket.' });
+  }
+
+  // ── REMOVE ITEM ───────────────────────────────────────────────────────────
+  if (interaction.customId.startsWith('remove_item_modal:')) {
+    const userId   = interaction.customId.split(':')[1];
+    const itemName = interaction.fields.getTextInputValue('item_name').trim().toLowerCase();
+
+    await interaction.deferReply({ ephemeral: true });
+
+    let cart = await getCart(userId);
+    if (!cart) return interaction.editReply({ content: '❌ No active cart found.' });
+
+    const match = cart.items.find(e => e.title.toLowerCase().includes(itemName));
+    if (!match) return interaction.editReply({ content: `❌ No item matching **${itemName}** found in cart.` });
+
+    cart.items = cart.items.filter(e => e !== match);
+
+    if (cart.orderMessageId && cart.orderChannelId) {
+      try {
+        const ch  = await interaction.client.channels.fetch(cart.orderChannelId);
+        const msg = await ch.messages.fetch(cart.orderMessageId);
+        await msg.edit({ embeds: [buildOrderEmbed(cart)], components: buildOrderButtons(userId) });
+      } catch { /* ignore */ }
+    }
+
+    await saveCart(userId, cart);
+    await interaction.editReply({ content: `✅ **${match.title}** removed from your cart.` });
   }
 
   // ── DISCOUNT CODE ─────────────────────────────────────────────────────────
