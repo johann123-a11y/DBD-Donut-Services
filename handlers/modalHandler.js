@@ -1,19 +1,22 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
-const { getShop, getCart, saveCart, getConfig } = require('../utils/db');
-const { generateOrderId, buildShopEmbed, buildOrderEmbed } = require('../utils/orderUtils');
+const { getShop, getCart, saveCart, getConfig, getDiscount } = require('../utils/db');
+const { generateOrderId, buildOrderEmbed, buildDeliveryRow } = require('../utils/orderUtils');
 
 function buildOrderButtons(userId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`close_order:${userId}`).setLabel('Close Order').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId(`clear_order:${userId}`).setLabel('Clear Order').setStyle(ButtonStyle.Secondary),
-  );
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`close_order:${userId}`).setLabel('Close Order').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`clear_order:${userId}`).setLabel('Clear Order').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`apply_discount:${userId}`).setLabel('Discount / Referral').setStyle(ButtonStyle.Primary),
+    ),
+  ];
 }
 
 async function getOrCreateTicketChannel(interaction, cart, userId, categoryId, config) {
   if (cart.orderChannelId) {
     try {
       const ch = await interaction.client.channels.fetch(cart.orderChannelId);
-      if (ch) return ch;
+      if (ch) return { channel: ch, isNew: false };
     } catch { /* channel deleted, create new one */ }
   }
 
@@ -34,87 +37,120 @@ async function getOrCreateTicketChannel(interaction, cart, userId, categoryId, c
     ],
   });
 
-  return channel;
+  return { channel, isNew: true };
 }
 
 async function handleModal(interaction) {
-  if (!interaction.customId.startsWith('add_to_cart_modal:')) return;
+  // ── ADD TO CART ───────────────────────────────────────────────────────────
+  if (interaction.customId.startsWith('add_to_cart_modal:')) {
+    const itemId   = interaction.customId.split(':')[1];
+    const quantity = parseInt(interaction.fields.getTextInputValue('quantity'), 10);
+    const nickname = interaction.fields.getTextInputValue('nickname');
+    const coordX   = interaction.fields.getTextInputValue('coord_x');
+    const coordY   = interaction.fields.getTextInputValue('coord_y');
+    const coordZ   = interaction.fields.getTextInputValue('coord_z');
 
-  const itemId   = interaction.customId.split(':')[1];
-  const quantity = parseInt(interaction.fields.getTextInputValue('quantity'), 10);
-  const nickname = interaction.fields.getTextInputValue('nickname');
-  const coordX   = interaction.fields.getTextInputValue('coord_x');
-  const coordY   = interaction.fields.getTextInputValue('coord_y');
-  const coordZ   = interaction.fields.getTextInputValue('coord_z');
-
-  if (isNaN(quantity) || quantity < 1) {
-    return interaction.reply({ content: '❌ Please enter a valid quantity (minimum 1).', ephemeral: true });
-  }
-
-  await interaction.deferReply({ ephemeral: true });
-
-  const item   = await getShop(itemId);
-  const config = await getConfig(interaction.guildId);
-
-  if (!item) return interaction.editReply({ content: '❌ Item no longer exists.' });
-
-  const userId = interaction.user.id;
-  let cart = await getCart(userId);
-
-  if (!cart) {
-    cart = { _id: userId, orderId: generateOrderId(), items: [], orderMessageId: null, orderChannelId: null, status: 'waiting' };
-  }
-
-  // Always update delivery info with latest submission
-  cart.nickname = nickname;
-  cart.coordX   = coordX;
-  cart.coordY   = coordY;
-  cart.coordZ   = coordZ;
-
-  const existing = cart.items.find(e => e.shopItemId === itemId);
-  if (existing) {
-    existing.quantity += quantity;
-  } else {
-    cart.items.push({ shopItemId: itemId, title: item.title, price: item.price, quantity });
-  }
-
-  // Update all shop embeds across all channels (no-op since we removed stock)
-
-  const pingIds    = [userId, ...(config.pingUsers ?? []).filter(id => id !== userId)];
-  const rolePings  = (config.pingRoles ?? []).map(id => `<@&${id}>`);
-  const pingText   = [...pingIds.map(id => `<@${id}>`), ...rolePings].join(' ');
-  const orderEmbed = buildOrderEmbed(cart);
-  const orderButtons = buildOrderButtons(userId);
-
-  // Get or create ticket channel
-  let ticketChannel;
-  try {
-    ticketChannel = await getOrCreateTicketChannel(interaction, cart, userId, config.ticketCategoryId, config);
-  } catch (err) {
-    console.error('Failed to create ticket channel:', err);
-    return interaction.editReply({ content: '❌ Failed to create ticket channel. Check bot permissions.' });
-  }
-
-  cart.orderChannelId = ticketChannel.id;
-
-  if (cart.orderMessageId) {
-    try {
-      const orderMsg = await ticketChannel.messages.fetch(cart.orderMessageId);
-      await orderMsg.edit({ embeds: [orderEmbed], components: [orderButtons] });
-    } catch {
-      cart.orderMessageId = null;
+    if (isNaN(quantity) || quantity < 1) {
+      return interaction.reply({ content: '❌ Please enter a valid quantity (minimum 1).', ephemeral: true });
     }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const item   = await getShop(itemId);
+    const config = await getConfig(interaction.guildId);
+
+    if (!item) return interaction.editReply({ content: '❌ Item no longer exists.' });
+
+    const userId = interaction.user.id;
+    let cart = await getCart(userId);
+
+    if (!cart) {
+      cart = { _id: userId, orderId: generateOrderId(), items: [], orderMessageId: null, orderChannelId: null, status: 'waiting' };
+    }
+
+    cart.nickname = nickname;
+    cart.coordX   = coordX;
+    cart.coordY   = coordY;
+    cart.coordZ   = coordZ;
+
+    const existing = cart.items.find(e => e.shopItemId === itemId);
+    if (existing) {
+      existing.quantity += quantity;
+    } else {
+      cart.items.push({ shopItemId: itemId, title: item.title, price: item.price, quantity });
+    }
+
+    const pingIds   = [userId, ...(config.pingUsers ?? []).filter(id => id !== userId)];
+    const rolePings = (config.pingRoles ?? []).map(id => `<@&${id}>`);
+    const pingText  = [...pingIds.map(id => `<@${id}>`), ...rolePings].join(' ');
+
+    let ticketChannel, isNew;
+    try {
+      ({ channel: ticketChannel, isNew } = await getOrCreateTicketChannel(interaction, cart, userId, config.ticketCategoryId, config));
+    } catch (err) {
+      console.error('Failed to create ticket channel:', err);
+      return interaction.editReply({ content: '❌ Failed to create ticket channel. Check bot permissions.' });
+    }
+
+    cart.orderChannelId = ticketChannel.id;
+
+    // If new channel: send delivery speed selection first, then ping
+    if (isNew) {
+      await ticketChannel.send({ content: '📦 **Select your delivery speed:**', components: [buildDeliveryRow(userId)] });
+      await ticketChannel.send({ content: pingText });
+    }
+
+    const orderEmbed   = buildOrderEmbed(cart);
+    const orderButtons = buildOrderButtons(userId);
+
+    if (cart.orderMessageId) {
+      try {
+        const orderMsg = await ticketChannel.messages.fetch(cart.orderMessageId);
+        await orderMsg.edit({ embeds: [orderEmbed], components: orderButtons });
+      } catch {
+        cart.orderMessageId = null;
+      }
+    }
+
+    if (!cart.orderMessageId) {
+      const msg = await ticketChannel.send({ embeds: [orderEmbed], components: orderButtons });
+      cart.orderMessageId = msg.id;
+      try { await msg.pin(); } catch { /* ignore */ }
+    }
+
+    await saveCart(userId, cart);
+    await interaction.editReply({ content: `✅ Added **${quantity}x ${item.title}** to your cart. Check ${ticketChannel}!` });
   }
 
-  if (!cart.orderMessageId) {
-    await ticketChannel.send({ content: pingText });
-    const msg = await ticketChannel.send({ embeds: [orderEmbed], components: [orderButtons] });
-    cart.orderMessageId = msg.id;
-    try { await msg.pin(); } catch { /* ignore pin errors */ }
-  }
+  // ── DISCOUNT CODE ─────────────────────────────────────────────────────────
+  if (interaction.customId.startsWith('discount_modal:')) {
+    const userId = interaction.customId.split(':')[1];
+    const code   = interaction.fields.getTextInputValue('code').toLowerCase().trim();
 
-  await saveCart(userId, cart);
-  await interaction.editReply({ content: `✅ Added **${quantity}x ${item.title}** to your cart. Check ${ticketChannel}!` });
+    await interaction.deferReply({ ephemeral: true });
+
+    const discount = await getDiscount(code);
+    if (!discount) {
+      return interaction.editReply({ content: `❌ Invalid discount code **${code}**.` });
+    }
+
+    let cart = await getCart(userId);
+    if (!cart) return interaction.editReply({ content: '❌ No active cart found.' });
+
+    cart.discountCode    = discount._id;
+    cart.discountPercent = discount.percent;
+
+    if (cart.orderMessageId && cart.orderChannelId) {
+      try {
+        const ch  = await interaction.client.channels.fetch(cart.orderChannelId);
+        const msg = await ch.messages.fetch(cart.orderMessageId);
+        await msg.edit({ embeds: [buildOrderEmbed(cart)], components: buildOrderButtons(userId) });
+      } catch { /* ignore */ }
+    }
+
+    await saveCart(userId, cart);
+    await interaction.editReply({ content: `✅ Discount code **${discount._id}** applied — **${discount.percent}% off**!` });
+  }
 }
 
 module.exports = { handleModal, buildOrderButtons };

@@ -6,6 +6,8 @@ async function connectDB() {
   if (connected) return;
   await mongoose.connect(process.env.MONGO_URI);
   connected = true;
+  // Seed built-in discount codes
+  await DiscountCode.findByIdAndUpdate('newbot', { percent: 15 }, { upsert: true });
   console.log('✅ MongoDB connected');
 }
 
@@ -28,30 +30,40 @@ const cartItemSchema = new mongoose.Schema({
 }, { _id: false });
 
 const cartSchema = new mongoose.Schema({
-  _id:            String,   // userId
-  orderId:        String,
-  items:          [cartItemSchema],
-  orderMessageId: String,
-  orderChannelId: String,
-  status:         { type: String, default: 'waiting' },
-  nickname:       { type: String, default: null },
-  coordX:         { type: String, default: null },
-  coordY:         { type: String, default: null },
-  coordZ:         { type: String, default: null },
+  _id:             String,   // userId
+  orderId:         String,
+  items:           [cartItemSchema],
+  orderMessageId:  String,
+  orderChannelId:  String,
+  status:          { type: String, default: 'waiting' },
+  nickname:        { type: String, default: null },
+  coordX:          { type: String, default: null },
+  coordY:          { type: String, default: null },
+  coordZ:          { type: String, default: null },
+  deliverySpeed:   { type: String, default: null },
+  deliveryFee:     { type: Number, default: null },
+  discountCode:    { type: String, default: null },
+  discountPercent: { type: Number, default: null },
 });
 
 const configSchema = new mongoose.Schema({
-  _id:             { type: String, default: 'global' },
+  _id:              { type: String, default: 'global' },
   pingUsers:        { type: [String], default: [] },
   pingRoles:        { type: [String], default: [] },
   ticketCategoryId: { type: String, default: null },
 });
 
+const discountCodeSchema = new mongoose.Schema({
+  _id:     String,   // the code itself
+  percent: Number,
+});
+
 // ── Models ───────────────────────────────────────────────────────────────────
 
-const Shop   = mongoose.models.Shop   || mongoose.model('Shop',   shopSchema);
-const Cart   = mongoose.models.Cart   || mongoose.model('Cart',   cartSchema);
-const Config = mongoose.models.Config || mongoose.model('Config', configSchema);
+const Shop         = mongoose.models.Shop         || mongoose.model('Shop',         shopSchema);
+const Cart         = mongoose.models.Cart         || mongoose.model('Cart',         cartSchema);
+const Config       = mongoose.models.Config       || mongoose.model('Config',       configSchema);
+const DiscountCode = mongoose.models.DiscountCode || mongoose.model('DiscountCode', discountCodeSchema);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,4 +89,15 @@ async function saveConfig(guildId = 'global', data) {
   return Config.findByIdAndUpdate(guildId, { $set: data }, { upsert: true, new: true });
 }
 
-module.exports = { connectDB, getShop, saveShop, addShopMessage, deleteShop, findShopByName, getAllShops, getShopsByMessageId, getCart, saveCart, getConfig, saveConfig };
+async function getDiscount(code)           { return DiscountCode.findById(code.toLowerCase()).lean(); }
+async function saveDiscount(code, percent) { return DiscountCode.findByIdAndUpdate(code.toLowerCase(), { percent }, { upsert: true, new: true }); }
+async function deleteDiscount(code)        { return DiscountCode.findByIdAndDelete(code.toLowerCase()); }
+async function getAllDiscounts()            { return DiscountCode.find().lean(); }
+
+module.exports = {
+  connectDB,
+  getShop, saveShop, addShopMessage, deleteShop, findShopByName, getAllShops, getShopsByMessageId,
+  getCart, saveCart,
+  getConfig, saveConfig,
+  getDiscount, saveDiscount, deleteDiscount, getAllDiscounts,
+};

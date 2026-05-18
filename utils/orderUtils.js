@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 const MIN_ORDER_AMOUNT = 7.00;
 
@@ -8,6 +8,12 @@ const STATUS_OPTIONS = {
   shipped:    '📦 Shipped',
   completed:  '✅ Completed',
   cancelled:  '❌ Cancelled',
+};
+
+const DELIVERY_SPEEDS = {
+  default:   { label: 'Default',    fee: 0.04 },
+  fast:      { label: 'Fast',       fee: 0.99 },
+  superfast: { label: 'Superfast',  fee: 1.60 },
 };
 
 function generateOrderId() {
@@ -38,7 +44,7 @@ function buildOrderEmbed(cart) {
   let description = '';
   let totalKits = 0;
 
-  // Delivery info at the top
+  // Delivery info
   if (cart.nickname || cart.coordX) {
     description += `**📋 Delivery Info**\n`;
     if (cart.nickname) description += `Nickname: \`${cart.nickname}\`\n`;
@@ -54,20 +60,34 @@ function buildOrderEmbed(cart) {
     totalKits += entry.quantity;
   }
 
+  // Delivery speed
+  if (cart.deliverySpeed) {
+    const spd = DELIVERY_SPEEDS[cart.deliverySpeed];
+    description += `**🚚 Delivery:** ${spd.label} (+$${spd.fee.toFixed(2)} USD)\n`;
+  }
+
+  // Discount
+  if (cart.discountCode) {
+    description += `**🏷️ Discount:** \`${cart.discountCode}\` (-${cart.discountPercent}%)\n`;
+  }
+
   const embed = new EmbedBuilder()
     .setColor(0x57f287)
     .setTitle(`🛒 Order Ticket - ${cart.orderId}`)
     .setDescription(description.trim() || '*No items in cart*')
-    .addFields(
-      { name: 'Total Kits', value: `${totalKits}`, inline: true },
-    );
+    .addFields({ name: 'Total Kits', value: `${totalKits}`, inline: true });
 
-  embed.addFields({
-    name: 'Status',
-    value: STATUS_OPTIONS[cart.status] ?? cart.status,
-  });
+  embed.addFields({ name: 'Status', value: STATUS_OPTIONS[cart.status] ?? cart.status });
 
   return embed;
 }
 
-module.exports = { generateOrderId, generateItemId, buildShopEmbed, buildOrderEmbed, STATUS_OPTIONS, MIN_ORDER_AMOUNT };
+function buildDeliveryRow(userId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`delivery:default:${userId}`).setLabel('Default ($0.04)').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`delivery:fast:${userId}`).setLabel('Fast ($0.99)').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`delivery:superfast:${userId}`).setLabel('Superfast ($1.60)').setStyle(ButtonStyle.Success),
+  );
+}
+
+module.exports = { generateOrderId, generateItemId, buildShopEmbed, buildOrderEmbed, buildDeliveryRow, STATUS_OPTIONS, DELIVERY_SPEEDS, MIN_ORDER_AMOUNT };
