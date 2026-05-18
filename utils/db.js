@@ -42,6 +42,7 @@ const cartSchema = new mongoose.Schema({
   coordZ:          { type: String, default: null },
   deliverySpeed:   { type: String, default: null },
   deliveryFee:     { type: Number, default: null },
+  paymentMethod:   { type: String, default: null },
   discountCode:    { type: String, default: null },
   discountPercent: { type: Number, default: null },
 });
@@ -51,10 +52,11 @@ const configSchema = new mongoose.Schema({
   pingUsers:        { type: [String], default: [] },
   pingRoles:        { type: [String], default: [] },
   ticketCategoryId: { type: String, default: null },
+  paymentMethods:   { type: [String], default: [] },
 });
 
 const discountCodeSchema = new mongoose.Schema({
-  _id:     String,   // the code itself
+  _id:     String,
   percent: Number,
 });
 

@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
-const { getShop, getCart, saveCart } = require('../utils/db');
-const { buildShopEmbed, buildOrderEmbed, DELIVERY_SPEEDS } = require('../utils/orderUtils');
+const { getShop, getCart, saveCart, getConfig } = require('../utils/db');
+const { buildShopEmbed, buildOrderEmbed, DELIVERY_SPEEDS, buildDeliveryButtons, buildPaymentButtons } = require('../utils/orderUtils');
 const { buildOrderButtons } = require('./modalHandler');
 
 async function handleButton(interaction) {
@@ -8,21 +8,15 @@ async function handleButton(interaction) {
   const action   = parts[0];
   const targetId = parts[1];
 
-  // ── ADD TO CART ───────────────────────────────────────────────────────────
+  // ── ADD TO CART → quantity modal ──────────────────────────────────────────
   if (action === 'add_to_cart') {
     const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-    const modal = new ModalBuilder().setCustomId(`add_to_cart_modal:${targetId}`).setTitle('Checkout');
-    const make = (id, label, placeholder) =>
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId(id).setLabel(label).setPlaceholder(placeholder)
-          .setStyle(TextInputStyle.Short).setRequired(true)
-      );
+    const modal = new ModalBuilder().setCustomId(`add_to_cart_modal:${targetId}`).setTitle('Add to Cart');
     modal.addComponents(
-      make('quantity', 'Quantity',        'e.g. 2'),
-      make('nickname', 'Nickname in Game','Enter your in-game nickname'),
-      make('coord_x',  'Coordinate: X',  'Enter X coordinate'),
-      make('coord_y',  'Coordinate: Y',  'Enter Y coordinate'),
-      make('coord_z',  'Coordinate: Z',  'Enter Z coordinate'),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('quantity').setLabel('Quantity').setPlaceholder('e.g. 2')
+          .setStyle(TextInputStyle.Short).setRequired(true).setMinLength(1).setMaxLength(4)
+      )
     );
     await interaction.showModal(modal);
   }
@@ -55,18 +49,41 @@ async function handleButton(interaction) {
 
     if (cart.orderMessageId && cart.orderChannelId) {
       try {
-        const orderCh  = await interaction.client.channels.fetch(cart.orderChannelId);
-        const orderMsg = await orderCh.messages.fetch(cart.orderMessageId);
-        await orderMsg.edit({ embeds: [buildOrderEmbed(cart)], components: buildOrderButtons(interaction.user.id) });
+        const ch  = await interaction.client.channels.fetch(cart.orderChannelId);
+        const msg = await ch.messages.fetch(cart.orderMessageId);
+        await msg.edit({ embeds: [buildOrderEmbed(cart)], components: buildOrderButtons(interaction.user.id) });
       } catch { /* ignore */ }
     }
 
     await interaction.reply({ content: `✅ **${existing.title}** removed from your cart.`, ephemeral: true });
   }
 
-  // ── DELIVERY SPEED ────────────────────────────────────────────────────────
+  // ── CHECKOUT START → info modal ───────────────────────────────────────────
+  if (action === 'checkout_start') {
+    const userId = targetId;
+    if (interaction.user.id !== userId) {
+      return interaction.reply({ content: '❌ This is not your order.', ephemeral: true });
+    }
+
+    const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+    const modal = new ModalBuilder().setCustomId(`checkout_info_modal:${userId}`).setTitle('Checkout');
+    const make  = (id, label, placeholder) =>
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId(id).setLabel(label).setPlaceholder(placeholder)
+          .setStyle(TextInputStyle.Short).setRequired(true)
+      );
+    modal.addComponents(
+      make('nickname', 'Nickname in Game', 'Enter your in-game nickname'),
+      make('coord_x',  'Coordinate: X',   'Enter X coordinate'),
+      make('coord_y',  'Coordinate: Y',   'Enter Y coordinate'),
+      make('coord_z',  'Coordinate: Z',   'Enter Z coordinate'),
+    );
+    await interaction.showModal(modal);
+  }
+
+  // ── DELIVERY SPEED → send payment buttons ─────────────────────────────────
   if (action === 'delivery') {
-    const speed  = targetId;            // default / fast / superfast
+    const speed  = targetId;
     const userId = parts[2];
 
     if (interaction.user.id !== userId) {
@@ -82,6 +99,7 @@ async function handleButton(interaction) {
     cart.deliverySpeed = speed;
     cart.deliveryFee   = speedData.fee;
 
+    // Update order embed
     if (cart.orderMessageId && cart.orderChannelId) {
       try {
         const ch  = await interaction.client.channels.fetch(cart.orderChannelId);
@@ -90,22 +108,89 @@ async function handleButton(interaction) {
       } catch { /* ignore */ }
     }
 
-    // Disable the delivery buttons after selection
-    try {
-      const { DELIVERY_SPEEDS: DS } = require('../utils/orderUtils');
-      const disabledRow = new ActionRowBuilder().addComponents(
-        Object.entries(DS).map(([key, val]) =>
-          new ButtonBuilder()
-            .setCustomId(`delivery:${key}:${userId}`)
-            .setLabel(key === speed ? `✅ ${val.label} ($${val.fee.toFixed(2)})` : `${val.label} ($${val.fee.toFixed(2)})`)
-            .setStyle(key === speed ? ButtonStyle.Success : ButtonStyle.Secondary)
-            .setDisabled(true)
-        )
-      );
-      await interaction.update({ components: [disabledRow] });
-    } catch {
-      await interaction.reply({ content: `✅ Delivery set to **${speedData.label}** (+$${speedData.fee.toFixed(2)} USD).`, ephemeral: true });
+    // Disable delivery buttons
+    const disabledRow = new ActionRowBuilder().addComponents(
+      Object.entries(DELIVERY_SPEEDS).map(([key, val]) =>
+        new ButtonBuilder()
+          .setCustomId(`delivery:${key}:${userId}`)
+          .setLabel(key === speed ? `✅ ${val.label}` : val.label)
+          .setStyle(key === speed ? ButtonStyle.Success : ButtonStyle.Secondary)
+          .setDisabled(true)
+      )
+    );
+    await interaction.update({ components: [disabledRow] });
+
+    // Fetch payment methods for this guild
+    const config  = await getConfig(interaction.guildId);
+    const methods = config.paymentMethods ?? [];
+
+    if (!methods.length) {
+      await interaction.channel.send({ content: '⚠️ No payment methods configured. Ask an admin to use `/payment add`.' });
+    } else {
+      await interaction.channel.send({
+        content: '💳 **Step 3 — Select your payment method:**',
+        components: [buildPaymentButtons(userId, methods)],
+      });
     }
+
+    await saveCart(userId, cart);
+  }
+
+  // ── PAYMENT SELECTED → confirmation message ───────────────────────────────
+  if (action === 'payment') {
+    const index  = parseInt(targetId, 10);
+    const userId = parts[2];
+
+    if (interaction.user.id !== userId) {
+      return interaction.reply({ content: '❌ This is not your order.', ephemeral: true });
+    }
+
+    const config  = await getConfig(interaction.guildId);
+    const methods = config.paymentMethods ?? [];
+    const method  = methods[index];
+    if (!method) return interaction.reply({ content: '❌ Payment method not found.', ephemeral: true });
+
+    const cart = await getCart(userId);
+    if (!cart) return interaction.reply({ content: '❌ No active cart found.', ephemeral: true });
+
+    cart.paymentMethod = method;
+    cart.status        = 'processing';
+
+    // Update order embed
+    if (cart.orderMessageId && cart.orderChannelId) {
+      try {
+        const ch  = await interaction.client.channels.fetch(cart.orderChannelId);
+        const msg = await ch.messages.fetch(cart.orderMessageId);
+        await msg.edit({ embeds: [buildOrderEmbed(cart)], components: buildOrderButtons(userId) });
+      } catch { /* ignore */ }
+    }
+
+    // Disable payment buttons
+    const disabledRow = new ActionRowBuilder().addComponents(
+      methods.slice(0, 5).map((m, i) =>
+        new ButtonBuilder()
+          .setCustomId(`payment:${i}:${userId}`)
+          .setLabel(i === index ? `✅ ${m}` : m)
+          .setStyle(i === index ? ButtonStyle.Success : ButtonStyle.Secondary)
+          .setDisabled(true)
+      )
+    );
+    await interaction.update({ components: [disabledRow] });
+
+    // Confirmation summary
+    const { DELIVERY_SPEEDS: DS } = require('../utils/orderUtils');
+    const spd     = DS[cart.deliverySpeed];
+    const items   = cart.items.map(e => `• **${e.title}** × ${e.quantity} @ ${e.price}`).join('\n');
+    const summary =
+      `✅ **Order confirmed!**\n\n` +
+      `**Items:**\n${items || '—'}\n\n` +
+      `**Nickname:** \`${cart.nickname ?? '—'}\`\n` +
+      `**Coords:** X\`${cart.coordX ?? '—'}\` Y\`${cart.coordY ?? '—'}\` Z\`${cart.coordZ ?? '—'}\`\n` +
+      `**Delivery:** ${spd ? `${spd.label} ($${spd.fee.toFixed(2)})` : '—'}\n` +
+      `**Payment:** ${method}\n` +
+      (cart.discountCode ? `**Discount:** \`${cart.discountCode}\` (-${cart.discountPercent}%)\n` : '');
+
+    await interaction.channel.send({ content: summary });
 
     await saveCart(userId, cart);
   }
@@ -116,7 +201,6 @@ async function handleButton(interaction) {
     if (interaction.user.id !== userId && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({ content: '❌ This is not your order.', ephemeral: true });
     }
-
     const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
     const modal = new ModalBuilder().setCustomId(`discount_modal:${userId}`).setTitle('Apply Discount Code');
     modal.addComponents(
@@ -134,20 +218,16 @@ async function handleButton(interaction) {
       return interaction.reply({ content: '❌ Only admins can close orders.', ephemeral: true });
     }
     const cart = await getCart(targetId);
-    await interaction.reply({ content: '🔒 Closing order ticket in 3 seconds...', ephemeral: true });
-    setTimeout(async () => {
-      try { await interaction.channel.delete(); } catch { /* ignore */ }
-    }, 3000);
+    await interaction.reply({ content: '🔒 Closing in 3 seconds...', ephemeral: true });
+    setTimeout(async () => { try { await interaction.channel.delete(); } catch { /* ignore */ } }, 3000);
     if (cart) {
-      cart.orderChannelId  = null;
-      cart.orderMessageId  = null;
-      cart.items           = [];
-      cart.status          = 'waiting';
-      cart.deliverySpeed   = null;
-      cart.deliveryFee     = null;
-      cart.discountCode    = null;
-      cart.discountPercent = null;
-      await saveCart(targetId, cart);
+      await saveCart(targetId, {
+        ...cart,
+        orderChannelId: null, orderMessageId: null,
+        items: [], status: 'waiting',
+        deliverySpeed: null, deliveryFee: null,
+        paymentMethod: null, discountCode: null, discountPercent: null,
+      });
     }
   }
 
@@ -159,17 +239,12 @@ async function handleButton(interaction) {
     const cart = await getCart(targetId);
     if (!cart) return interaction.reply({ content: '❌ Cart not found.', ephemeral: true });
 
-    cart.items           = [];
-    cart.status          = 'waiting';
-    cart.deliverySpeed   = null;
-    cart.deliveryFee     = null;
-    cart.discountCode    = null;
-    cart.discountPercent = null;
-    await saveCart(targetId, cart);
+    const cleared = { ...cart, items: [], status: 'waiting', deliverySpeed: null, deliveryFee: null, paymentMethod: null, discountCode: null, discountPercent: null };
+    await saveCart(targetId, cleared);
 
     try {
       const msg = await interaction.channel.messages.fetch(cart.orderMessageId);
-      await msg.edit({ embeds: [buildOrderEmbed(cart)], components: buildOrderButtons(targetId) });
+      await msg.edit({ embeds: [buildOrderEmbed(cleared)], components: buildOrderButtons(targetId) });
     } catch { /* ignore */ }
 
     await interaction.reply({ content: '✅ Order cleared.', ephemeral: true });
